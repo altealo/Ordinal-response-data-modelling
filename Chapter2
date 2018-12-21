@@ -13,7 +13,7 @@ levels(melt_select_data$Category)<-c("Nature","Shopping")
 levels(melt_select_data$CNS)<-c("low","medium","high")
 melt_select_data$CNS<-as.factor(melt_select_data$CNS)
 # Bar plot
-plot(as.factor(value),ylim=c(0,400),col=gray.colors(7,start=0.9,end=0.2,gamma=2.2,alpha=NULL),ylab="Pleasantness",xlab="Rating categories",cex.main=1.5,cex.lab=1.5,cex.axis=1.5)
+plot(as.factor(melt_select_data$value),ylim=c(0,400),col=gray.colors(7,start=0.9,end=0.2,gamma=2.2,alpha=NULL),ylab="Pleasantness",xlab="Rating categories",cex.main=1.5,cex.lab=1.5,cex.axis=1.5)
 # Interaction plot
 p<-ggplot(melt_select_data, aes(CNS,value,colour=Category))
 p + stat_summary(fun.y=mean, geom="point") +
