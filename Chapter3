@@ -1,0 +1,129 @@
+##########################
+# Chapter3 - Previous work
+##########################
+# December 2018
+##########################
+# Figure 3.1. POM and PPOM without crossing
+##########################
+par(mar=c(5,5,2,2))
+par(mfrow=c(2,2))
+
+##############
+#Plot a
+##############
+
+BID = seq(from=0, to=700, by=10)
+
+logOdds.A.a = -3.92 + .014*BID-.45*1
+logOdds.B.a = -3.92 + .014*BID -.15*1
+logOdds.A.b = -3.92 + .014*BID + .50*1
+logOdds.B.b = -3.92 + .014*BID + 0.75*1
+
+pY.A.a = exp(logOdds.A.a)/(1+ exp(logOdds.A.a))
+pY.B.a = exp(logOdds.B.a)/(1+ exp(logOdds.B.a))
+pY.A.b = exp(logOdds.A.b)  /(1+ exp(logOdds.A.b))
+pY.B.b = exp(logOdds.B.b)  /(1+ exp(logOdds.B.b))
+
+#par(mfrow=c(1,2))
+#last curve
+plot(x=BID, y=pY.A.a, type="l",lwd=2, ylab=expression(P(Y<=j)), main="",xlab="X",lty="dotted",cex=1.2,cex.lab=1.2,cex.axis=1.2)
+lines(x=BID, y=pY.B.a,lwd=2,lty="dotdash")
+lines(x=BID, y=pY.A.b,lwd=2,lty="dashed")
+lines(x=BID, y=pY.B.b,lwd=2,lty="solid")
+legend_texts=expression(P(Y<=4),P(Y<=3),P(Y<=2),P(Y<=1))
+legend("bottomright", legend=legend_texts, lty=c("solid", "dashed", "dotdash", "dotted"), lwd=c(2,2,2,2))
+
+##############
+#Plot b
+##############
+
+BID = seq(from=0, to=700, by=10)
+
+logOdds.A.a  = -3.92 + .014*BID-.25*1
+logOdds.B.a  = -3.92 + .0115*BID -.21*1
+logOdds.A.b  = -3.92 + .014*BID + .50*1
+logOdds.B.b  = -3.92 + .014*BID + 0.75*1
+
+
+pY.A.a = exp(logOdds.A.a)/(1+ exp(logOdds.A.a))
+pY.B.a = exp(logOdds.B.a)/(1+ exp(logOdds.B.a))
+pY.A.b = exp(logOdds.A.b)/(1+ exp(logOdds.A.b))
+pY.B.b = exp(logOdds.B.b)/(1+ exp(logOdds.B.b))
+
+
+plot(x=BID,  y=pY.A.a, type="l",lwd=2, ylab=expression(P(Y<=j)), main="",xlab="X",lty="dotted",cex=1.2,cex.lab=1.2,cex.axis=1.2)
+lines(x=BID, y=pY.B.a,lwd=2,lty="dotdash")
+lines(x=BID, y=pY.A.b,lwd=2,lty="dashed")
+lines(x=BID, y=pY.B.b,lwd=2,lty="solid")
+legend_texts=expression(P(Y<=4),P(Y<=3),P(Y<=2),P(Y<=1))
+legend("bottomright", legend=legend_texts, lty=c("solid", "dashed", "dotdash", "dotted"), lwd=c(2,2,2,2))
+
+##############
+#Plot c
+##############
+
+BID = seq(from=0, to=700, by=10)
+
+logOdds.A.a = -3.92 + .014*BID-.45*1
+logOdds.B.a = -3.92 + .014*BID -.15*1
+logOdds.A.b = -3.92 + .014*BID + .50*1
+logOdds.B.b = -3.92 + .014*BID + 0.75*1
+
+pY.A.a = exp(logOdds.A.a)/(1+ exp(logOdds.A.a))
+pY.B.a = exp(logOdds.B.a)/(1+ exp(logOdds.B.a))
+pY.A.b = exp(logOdds.A.b)/(1+ exp(logOdds.A.b))
+pY.B.b = exp(logOdds.B.b)/(1+ exp(logOdds.B.b))
+
+#last curve
+plot(x=BID, y=logOdds.A.a, type="l",lwd=2, ylab=expression(logit(P(Y<=j))), main="",xlab="X",lty="dotted",cex=1.2,cex.lab=1.2,cex.axis=1.2)
+lines(x=BID, y=logOdds.M.young,lwd=2,lty="dotdash")
+lines(x=BID, y=logOdds.F.old,lwd=2,lty="dashed")
+lines(x=BID, y=logOdds.M.old, lwd=2,lty="solid")
+legend_texts=expression(logit(P(Y<=4)),logit(P(Y<=3)),logit(P(Y<=2)),logit(P(Y<=1)))
+legend("bottomright", legend=legend_texts, lty=c("solid", "dashed", "dotdash", "dotted"), lwd=c(2,2,2,2))
+
+##############
+#Plot d
+##############
+
+BID = seq(from=0, to=700, by=10)
+
+logOdds.A.a = -3.92 + .014*BID-.25*1
+logOdds.B.a = -3.92 + .0115*BID -.21*1
+logOdds.A.b = -3.92 + .014*BID + .50*1
+logOdds.B.b = -3.92 + .014*BID + 0.75*1
+
+
+pY.A.a = exp(logOdds.A.a)/(1+ exp(logOdds.A.a))
+pY.B.a = exp(logOdds.B.a)/(1+ exp(logOdds.B.a))
+pY.A.b = exp(logOdds.A.b)/(1+ exp(logOdds.A.b))
+pY.B.b = exp(logOdds.B.b)/(1+ exp(logOdds.B.b))
+
+
+plot(x=BID, y=logOdds.A.a, type="l",lwd=2, ylab=expression(logit(P(Y<=j))), main="",xlab="X",lty="dotted",cex=1.2,cex.lab=1.2,cex.axis=1.2)
+lines(x=BID, y=logOdds.B.a,lwd=2,lty="dotdash")
+lines(x=BID, y=logOdds.A.b,lwd=2,lty="dashed")
+lines(x=BID, y=logOdds.B.b,lwd=2,lty="solid")
+legend_texts=expression(logit(P(Y<=4)),logit(P(Y<=3)),logit(P(Y<=2)),logit(P(Y<=1)))
+legend("bottomright", legend=legend_texts, lty=c("solid", "dashed", "dotdash", "dotted"), lwd=c(2,2,2,2))
+
+##########################
+# Figure 3.2.
+##########################
+library(VGAM) #vglm model
+library(ordinalgmifs) #eyedisease data set
+data(eyedisease)
+Model_eye_lerl<- vglm(lerl~sbp+lre,data=eyedisease,family = cumulative(parallel=FALSE~sbp))
+par(mfrow=c(1,2))
+#Plot PPOM cumulative probabilities
+plot(logit2prob(predict(Model_eye_lerl,type="terms")[,1])~eyedisease$sbp,ylab=expression("PPOM:"~P(Y<=j)),ylim=c(0,1),cex.lab=1.5,xlab="Systolic blood pressure",cex.axis=1.5,pch=20)
+points(logit2prob(predict(Model_eye_lerl,type="terms")[,2])~eyedisease$sbp,col="#E69F00",pch=20)
+points(logit2prob(predict(Model_eye_lerl,type="terms")[,3])~eyedisease$sbp,col="#56B4E9",pch=20)
+legend(163,1.0, legend=c(expression(P(Y<=3)),expression(P(Y<=2)), expression(P(Y<=1))),col=c("#56B4E9","#E69F00", "black"), lty=1, lwd=4, cex=1.3)
+#Plot PPOM logit cumulative probabilities
+plot(predict(Model_eye_lerl,type="terms")[,1]~eyedisease$sbp,ylab=expression("PPOM:"~logit(P(Y<=j))),cex.lab=1.5,xlab="Systolic blood pressure",cex.axis=1.5,pch=20,ylim=c(-6,6))
+points(predict(Model_eye_lerl,type="terms")[,2]~eyedisease$sbp,col="#E69F00",pch=20)
+points(predict(Model_eye_lerl,type="terms")[,3]~eyedisease$sbp,col="#56B4E9",pch=20)
+legend(140,6.0, legend=c(expression(logit(P(Y<=3))~" "),expression(logit(P(Y<=2))~" "), expression(logit(P(Y<=1))~" ")),col=c("#56B4E9","#E69F00", "black"), lty=1, lwd=4, cex=1.3)
+
+
