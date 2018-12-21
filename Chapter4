@@ -1,0 +1,790 @@
+##################
+# Chapter4 - Ordinal models for ordinal responses - an evaluation.
+##################
+# December 2018
+##################
+# Numerical simulation
+#################
+#######################
+##Unconstrained thresholds
+#######################
+residsd <- 100
+#1000 simulations
+nsim<-1000
+p_value0<-as.numeric(nsim)
+p_value1<-as.numeric(nsim)
+p_value2<-as.numeric(nsim)
+diffabs<-as.numeric(nsim)
+diffsign1<-as.numeric(nsim)
+diffsign2<-as.numeric(nsim)
+log(p_value1)<-as.numeric(nsim)
+log(p_value2)<-as.numeric(nsim)
+for(i in 1:nsim)
+{
+  # This command is purely informative: gives the simulation number that R is running 
+  print(i)
+  # set.seed declares the seed for the random generator
+  # If we run the for-loop the next time, results will be the same
+  set.seed(i)
+  # plots in a 2-by-2 panel
+  par(mfrow=c(2,2))                                  
+  # Simple case - x's are 1:5 repeated 4 times each
+  #20 sample size
+  x <- rep(1:5,each=4)
+  # The means of the 5 classes will be...
+  y.cut.means <- c(1,2,3,8,9)
+  # Generate residuals
+  resids <- rnorm(length(x),0,residsd)
+  # Create the "real" underlying, latent y variable
+  y <- y.cut.means[x]+resids
+  # Show regression and plot
+  summary(lm(y~x))                               
+  plot(jitter(y),jitter(y.cut.means[x]),xaxt="n",main="Latent variable",col="grey")
+  axis(2,at=c(1,2,3,8,9),labels=c(1,2,3,8,9))
+  abline(lm(x~y),col="green",lwd=2)
+  model0<-drop1(lm(y~x),test="Chi")                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+  print(model0)
+  p_value0[i]<-model0$"Pr(>Chi)"[2]
+  # Now create the "wrong" y variable, assigning numeric 1:5 to ordinal classes
+  y1 <- x+resids
+  # Regression and plot of this one...
+  summary(lm(y1~x))
+  plot(x,y1,main="Numeric variable")
+  abline(lm(y1~x),col="orange",lwd=2)
+  model1<-drop1(lm(y1~x),test="Chi")
+  #Show results from linear model
+  print(model1)
+  p_value1[i]<-model1$"Pr(>Chi)"[2]
+  # Now set where we will make the breaks - equispaced in this example
+  breaks <- min(y)+(max(y)-min(y))*c(-1000,1/5,2/5,3/5,4/5,1000)
+  # Create the ordinal variable
+  y2 <- ordered(cut(y,breaks=breaks,include.lowest=T,right=F))
+  # Histogram and scatterplot showing class boundaries
+  plot(y2,main="Ordinal variable",border="green")
+  plot(jitter(x)~y,axes=FALSE,main="Class boundaries",col="grey")
+  axis(side = 1)
+  axis(side = 2, at = round(breaks,digits=3))
+  abline(h=breaks,col=3,lty=2)
+  box()
+  # Finally, the clm
+  library(ordinal)
+  clm(y2~x)
+  model2<-drop1(clm(y2~x),test="Chi")
+  #Show results from cumulative link model
+  print(model2) 
+  p_value2[i]<-model2$"Pr(>Chi)"[2]
+  #Absolute differences
+  diffabs[i]<-p_value1[i]-p_value2[i]
+  ###Differences from alpha (assuming 0.05)
+  alpha<-rep(0.05,1000)
+  diffsign1[i]<-alpha[i]-p_value1[i]
+  diffsign2[i]<-alpha[i]-p_value2[i] 
+  if(sign(diffsign1[i])!=sign(diffsign2[i]))
+    print(i)
+}
+p_value0
+p_value1
+p_value2
+
+data<-data.frame(p_value0,p_value1,p_value2)
+write.table(data,"results_10.csv")
+
+###Loop 100
+residsd <- 100
+#10 simulations
+nsim<-100
+p_value0<-as.numeric(nsim)
+p_value1<-as.numeric(nsim)
+p_value2<-as.numeric(nsim)
+diffabs<-as.numeric(nsim)
+diffsign1<-as.numeric(nsim)
+diffsign2<-as.numeric(nsim)
+log(p_value1)<-as.numeric(nsim)
+log(p_value2)<-as.numeric(nsim)
+for(i in 1:nsim)
+{
+  # This command is purely informative: gives the simulation number that R is running 
+  print(i)
+  # set.seed declares the seed for the random generator
+  # If we run the for-loop the next time, results will be the same
+  set.seed(i)
+  # plots in a 2-by-2 panel
+  par(mfrow=c(2,2))
+  # Simple case - x's are 1:5 repeated 10 times each
+  x <- rep(1:5,each=1000)
+  # The means of the 5 classes will be...
+  y.cut.means <- c(1,2,3,8,9)
+  # Generate residuals
+  resids <- rnorm(length(x),0,residsd)
+  # Create the "real" underlying, latent y variable
+  y <- y.cut.means[x]+resids
+  # Show regression and plot
+  summary(lm(y~x))
+  plot(jitter(y),jitter(y.cut.means[x]),xaxt="n",main="Latent variable",col="grey")
+  axis(2,at=c(1,2,5,8,9),labels=c(1,2,3,8,9))
+  abline(lm(x~y),col="green",lwd=2)
+  model0<-drop1(lm(y~x),test="Chi")
+  print(model0)
+  p_value0[i]<-model0$"Pr(>Chi)"[2]
+  # Now create the "wrong" y variable, assigning numeric 1:5 to ordinal classes
+  y1 <- x+resids
+  # Regression and plot of this one...
+  summary(lm(y1~x))
+  plot(x,y1,main="Numeric variable")
+  abline(lm(y1~x),col="orange",lwd=2)
+  model1<-drop1(lm(y1~x),test="Chi")
+  #Show results from linear model
+  print(model1)
+  p_value1[i]<-model1$"Pr(>Chi)"[2]
+  # Now set where we will make the breaks - equispaced in this example
+  breaks <- min(y)+(max(y)-min(y))*c(-1000,1/5,2/5,3/5,4/5,1000)
+  # Create the ordinal variable
+  y2 <- ordered(cut(y,breaks=breaks,include.lowest=T,right=F))
+  # Histogram and scatterplot showing class boundaries
+  plot(y2,main="Ordinal variable",border="green")
+  plot(jitter(x)~y,axes=FALSE,main="Class boundaries",col="grey")
+  axis(side = 1)
+  axis(side = 2, at = round(breaks,digits=3))
+  abline(h=breaks,col=3,lty=2)
+  box()
+  # Finally, the clm
+  library(ordinal)
+  clm(y2~x)
+  model2<-drop1(clm(y2~x),test="Chi")
+  #Show results from cumulative link model
+  print(model2) 
+  p_value2[i]<-model2$"Pr(>Chi)"[2]
+  #Absolute differences
+  diffabs[i]<-p_value1[i]-p_value2[i]
+  ###Differences from alpha (assuming 0.05)
+  alpha<-rep(0.05,1000)
+  diffsign1[i]<-alpha[i]-p_value1[i]
+  diffsign2[i]<-alpha[i]-p_value2[i] 
+  if(sign(diffsign1[i])!=sign(diffsign2[i]))
+    print(i)
+}
+p_value0
+p_value1
+p_value2
+
+data<-data.frame(p_value0,p_value1,p_value2)
+write.table(data,"results_100.csv")
+
+###Loop 1000
+residsd <- 100
+#10 simulations
+nsim<-1000
+p_value0<-as.numeric(nsim)
+p_value1<-as.numeric(nsim)
+p_value2<-as.numeric(nsim)
+diffabs<-as.numeric(nsim)
+diffsign1<-as.numeric(nsim)
+diffsign2<-as.numeric(nsim)
+log(p_value1)<-as.numeric(nsim)
+log(p_value2)<-as.numeric(nsim)
+for(i in 1:nsim)
+{
+  # This command is purely informative: gives the simulation number that R is running 
+  print(i)
+  # set.seed declares the seed for the random generator
+  # If we run the for-loop the next time, results will be the same
+  set.seed(i)
+  # plots in a 2-by-2 panel
+  par(mfrow=c(2,2))
+  # Simple case - x's are 1:5 repeated 10 times each
+  x <- rep(1:5,each=1000)
+  # The means of the 5 classes will be...
+  y.cut.means <- c(1,2,3,8,9)
+  # Generate residuals
+  resids <- rnorm(length(x),0,residsd)
+  # Create the "real" underlying, latent y variable
+  y <- y.cut.means[x]+resids
+  # Show regression and plot
+  summary(lm(y~x))
+  plot(jitter(y),jitter(y.cut.means[x]),xaxt="n",main="Latent variable",col="grey")
+  axis(2,at=c(1,2,5,8,9),labels=c(1,2,3,8,9))
+  abline(lm(x~y),col="green",lwd=2)
+  model0<-drop1(lm(y~x),test="Chi")
+  print(model0)
+  p_value0[i]<-model0$"Pr(>Chi)"[2]
+  # Now create the "wrong" y variable, assigning numeric 1:5 to ordinal classes
+  y1 <- x+resids
+  # Regression and plot of this one...
+  summary(lm(y1~x))
+  plot(x,y1,main="Numeric variable")
+  abline(lm(y1~x),col="orange",lwd=2)
+  model1<-drop1(lm(y1~x),test="Chi")
+  #Show results from linear model
+  print(model1)
+  p_value1[i]<-model1$"Pr(>Chi)"[2]
+  # Now set where we will make the breaks - equispaced in this example
+  breaks <- min(y)+(max(y)-min(y))*c(-1000,1/5,2/5,3/5,4/5,1000)
+  # Create the ordinal variable
+  y2 <- ordered(cut(y,breaks=breaks,include.lowest=T,right=F))
+  # Histogram and scatterplot showing class boundaries
+  plot(y2,main="Ordinal variable",border="green")
+  plot(jitter(x)~y,axes=FALSE,main="Class boundaries",col="grey")
+  axis(side = 1)
+  axis(side = 2, at = round(breaks,digits=3))
+  abline(h=breaks,col=3,lty=2)
+  box()
+  # Finally, the clm
+  library(ordinal)
+  clm(y2~x)
+  model2<-drop1(clm(y2~x),test="Chi")
+  #Show results from cumulative link model
+  print(model2) 
+  p_value2[i]<-model2$"Pr(>Chi)"[2]
+  #Absolute differences
+  diffabs[i]<-p_value1[i]-p_value2[i]
+  ###Differences from alpha (assuming 0.05)
+  alpha<-rep(0.05,1000)
+  diffsign1[i]<-alpha[i]-p_value1[i]
+  diffsign2[i]<-alpha[i]-p_value2[i] 
+  if(sign(diffsign1[i])!=sign(diffsign2[i]))
+    print(i)
+}
+p_value0
+p_value1
+p_value2
+
+data<-data.frame(p_value0,p_value1,p_value2)
+write.table(data,"results_1000.csv")
+
+###Absolute differences of log p-values
+for(i in 1:nsim)
+{
+  log(p_value1[i])
+  log(p_value2[i])  
+}
+log(p_value1)
+log(p_value2) 
+difflog<-log(p_value2)-log(p_value1)
+difflog
+
+minimum_abs_value<-as.numeric(nsim)
+for(i in 1:nsim)
+{
+  minimum_abs_value[i]<-min(abs(difflog))  
+}
+minimum_abs_value
+closest_value_simulation_number<-which(abs(difflog)==minimum_abs_value)
+closest_value_simulation_number
+
+#######################
+##Symmetric thresholds
+#######################
+###Loop
+residsd <- 100
+#10 simulations
+nsim<-10
+p_value1<-as.numeric(nsim)
+p_value2<-as.numeric(nsim)
+diffabs<-as.numeric(nsim)
+diffsign1<-as.numeric(nsim)
+diffsign2<-as.numeric(nsim)
+log(p_value1)<-as.numeric(nsim)
+log(p_value2)<-as.numeric(nsim)
+for(i in 1:nsim)
+{
+  # This command is purely informative: gives the simulation number that R is running 
+  print(i)
+  # set.seed declares the seed for the random generator
+  # If we run the for-loop the next time, results will be the same
+  set.seed(i)
+  # plots in a 2-by-2 panel
+  par(mfrow=c(2,2))
+  # Simple case - x's are 1:5 repeated 10 times each
+  x <- rep(1:5,each=1000)
+  # The means of the 5 classes will be...
+  y.cut.means <- c(1,2,5,8,9)
+  # Generate residuals
+  resids <- rnorm(length(x),0,residsd)
+  # Create the "real" underlying, latent y variable
+  y <- y.cut.means[x]+resids
+  # Show regression and plot
+  summary(lm(y~x))
+  plot(jitter(y),jitter(y.cut.means[x]),xaxt="n",main="Latent variable",col="grey")
+  axis(2,at=c(1,2,5,8,9),labels=c(1,2,5,8,9))
+  abline(lm(x~y),col="green",lwd=2)
+  model0<-drop1(lm(y~x),test="Chi")
+  print(model0)
+  # Now create the "wrong" y variable, assigning numeric 1:5 to ordinal classes
+  y1 <- x+resids
+  # Regression and plot of this one...
+  summary(lm(y1~x))
+  plot(x,y1,main="Numeric variable")
+  abline(lm(y1~x),col="orange",lwd=2)
+  model1<-drop1(lm(y1~x),test="Chi")
+  #Show results from linear model
+  print(model1)
+  p_value1[i]<-model1$"Pr(>Chi)"[2]
+  # Now set where we will make the breaks - equispaced in this example
+  breaks <- min(y)+(max(y)-min(y))*c(-1000,1/5,2/5,3/5,4/5,1000)
+  # Create the ordinal variable
+  y2 <- ordered(cut(y,breaks=breaks,include.lowest=T,right=F))
+  # Histogram and scatterplot showing class boundaries
+  plot(y2,main="Ordinal variable",border="green")
+  plot(jitter(x)~y,axes=FALSE,main="Class boundaries",col="grey")
+  axis(side = 1)
+  axis(side = 2, at = round(breaks,digits=3))
+  abline(h=breaks,col=3,lty=2)
+  box()
+  # Finally, the clm
+  library(ordinal)
+  clm(y2~x)
+  model2<-drop1(clm(y2~x),test="Chi")
+  #Show results from cumulative link model
+  print(model2) 
+  p_value2[i]<-model2$"Pr(>Chi)"[2]
+  #Absolute differences
+  diffabs[i]<-p_value1[i]-p_value2[i]
+  ###Differences from alpha (assuming 0.05)
+  alpha<-rep(0.05,1000)
+  diffsign1[i]<-alpha[i]-p_value1[i]
+  diffsign2[i]<-alpha[i]-p_value2[i] 
+  if(sign(diffsign1[i])!=sign(diffsign2[i]))
+    print(i)
+}
+
+#Calculations 5% significance level
+new_p_value0<-ifelse(p_value0<=0.05,c("significant"),c("nonsignificant"))
+new_p_value1<-ifelse(p_value1<=0.05,c("significant"),c("nonsignificant"))
+new_p_value2<-ifelse(p_value2<=0.05,c("significant"),c("nonsignificant"))
+results_0.05<-ifelse(new_p_value0==new_p_value1,ifelse(new_p_value0==new_p_value2,c("all equal"),c("0 and 1 equal")),ifelse(new_p_value1==new_p_value2,c("1 and 2 equal"),ifelse(new_p_value0==new_p_value2,c("0 and 2 equal"),c("none equal"))))
+ct_all_equal<-length(which(results_0.05=="all equal"))/length(results_0.05)
+ct_all_equal 
+ct_01<-length(which(results_0.05=="0 and 1 equal"))/length(results_0.05)
+ct_01
+ct_02<-length(which(results_0.05=="0 and 2 equal"))/length(results_0.05)
+ct_02
+ct_12<-length(which(results_0.05=="1 and 2 equal"))/length(results_0.05)
+ct_12
+
+#Calculations 1% significance level
+new1_p_value0<-ifelse(p_value0<=0.01,c("significant"),c("nonsignificant"))
+new1_p_value1<-ifelse(p_value1<=0.01,c("significant"),c("nonsignificant"))
+new1_p_value2<-ifelse(p_value2<=0.01,c("significant"),c("nonsignificant"))
+results_0.01<-ifelse(new1_p_value0==new1_p_value1,ifelse(new1_p_value0==new1_p_value2,c("all equal"),c("0 and 1 equal")),ifelse(new1_p_value1==new1_p_value2,c("1 and 2 equal"),ifelse(new1_p_value0==new1_p_value2,c("0 and 2 equal"),c("none equal"))))
+ct1_all_equal<-length(which(results_0.01=="all equal"))/length(results_0.01)
+ct1_all_equal 
+ct1_01<-length(which(results_0.01=="0 and 1 equal"))/length(results_0.01)
+ct1_01
+ct1_02<-length(which(results_0.01=="0 and 2 equal"))/length(results_0.01)
+ct1_02
+ct1_12<-length(which(results_0.01=="1 and 2 equal"))/length(results_0.01)
+ct1_12
+
+#################
+#Equidistant thresholds
+#######################
+###Loop
+residsd <- 100
+#100 simulations
+#nsim<-10000
+nsim<-100
+p_value1<-as.numeric(nsim)
+p_value2<-as.numeric(nsim)
+diffabs<-as.numeric(nsim)
+diffsign1<-as.numeric(nsim)
+diffsign2<-as.numeric(nsim)
+log(p_value1)<-as.numeric(nsim)
+log(p_value2)<-as.numeric(nsim)
+for(i in 1:nsim)
+{
+  # This command is purely informative: gives the simulation number that R is running 
+  print(i)
+  # set.seed declares the seed for the random generator
+  # If we run the for-loop the next time, results will be the same
+  set.seed(i)
+  # plots in a 2-by-2 panel
+  par(mfrow=c(2,2))
+  # Simple case - x's are 1:5 repeated 10 times each
+  x <- rep(1:5,each=1000)
+  # The means of the 5 classes will be...
+  y.cut.means <- c(1,3,5,7,9)
+  # Generate residuals
+  resids <- rnorm(length(x),0,residsd)
+  # Create the "real" underlying, latent y variable
+  y <- y.cut.means[x]+resids
+  # Show regression and plot
+  summary(lm(y~x))
+  plot(y,y.cut.means[x],main="Latent variable")
+  axis(2,at=c(1,3,5,7,9),labels=c(1,3,5,7,9),yaxt="n")
+  abline(lm(x~y),col="green",lwd=2)
+  model0<-drop1(lm(y~x),test="Chi")
+  print(model0)
+  # Now create the "wrong" y variable, assigning numeric 1:5 to ordinal classes
+  y1 <- x+resids
+  # Regression and plot of this one...
+  summary(lm(y1~x))
+  plot(y1,x,main="Numeric variable",col="grey")
+  rug(jitter(x), side = 4, col = "light blue")
+  abline(lm(x~y1),col="orange",lwd=2)
+  model1<-drop1(lm(y1~x),test="Chi")
+  #Show results from linear model
+  print(model1)
+  p_value1[i]<-model1$"Pr(>Chi)"[2]
+  # Now set where we will make the breaks - equispaced in this example
+  breaks <- min(y)+(max(y)-min(y))*c(-1000,1/5,2/5,3/5,4/5,1000)
+  # Create the ordinal variable
+  y2 <- ordered(cut(y,breaks=breaks,include.lowest=T,right=F))
+  # Histogram and scatterplot showing class boundaries
+  plot(y2,main="Ordinal variable",border="green")
+  plot(jitter(x)~y,axes=FALSE,main="Class boundaries")
+  rug(x, side = 3, col = "light blue")
+  axis(side = 1)
+  axis(side = 2, at = round(breaks,digits=3))
+  abline(h=breaks,col=3,lty=2)
+  box()
+  # Finally, the clm
+  library(ordinal)
+  clm(y2~x)
+  model2<-drop1(clm(y2~x),test="Chi")
+  #Show results from cumulative link model
+  print(model2) 
+  p_value2[i]<-model2$"Pr(>Chi)"[2]
+  #Absolute differences
+  diffabs[i]<-p_value1[i]-p_value2[i]
+  ###Differences from alpha (assuming 0.05)
+  alpha<-rep(0.05,1000)
+  diffsign1[i]<-alpha[i]-p_value1[i]
+  diffsign2[i]<-alpha[i]-p_value2[i] 
+  if(sign(diffsign1[i])!=sign(diffsign2[i]))
+    print(i)
+}
+
+#Calculations 5% significance level
+new_p_value0<-ifelse(p_value0<=0.05,c("significant"),c("nonsignificant"))
+new_p_value1<-ifelse(p_value1<=0.05,c("significant"),c("nonsignificant"))
+new_p_value2<-ifelse(p_value2<=0.05,c("significant"),c("nonsignificant"))
+results_0.05<-ifelse(new_p_value0==new_p_value1,ifelse(new_p_value0==new_p_value2,c("all equal"),c("0 and 1 equal")),ifelse(new_p_value1==new_p_value2,c("1 and 2 equal"),ifelse(new_p_value0==new_p_value2,c("0 and 2 equal"),c("none equal"))))
+ct_all_equal<-length(which(results_0.05=="all equal"))/length(results_0.05)
+ct_all_equal 
+ct_01<-length(which(results_0.05=="0 and 1 equal"))/length(results_0.05)
+ct_01
+ct_02<-length(which(results_0.05=="0 and 2 equal"))/length(results_0.05)
+ct_02
+ct_12<-length(which(results_0.05=="1 and 2 equal"))/length(results_0.05)
+ct_12
+
+#Calculations 1% significance level
+new1_p_value0<-ifelse(p_value0<=0.01,c("significant"),c("nonsignificant"))
+new1_p_value1<-ifelse(p_value1<=0.01,c("significant"),c("nonsignificant"))
+new1_p_value2<-ifelse(p_value2<=0.01,c("significant"),c("nonsignificant"))
+results_0.01<-ifelse(new1_p_value0==new1_p_value1,ifelse(new1_p_value0==new1_p_value2,c("all equal"),c("0 and 1 equal")),ifelse(new1_p_value1==new1_p_value2,c("1 and 2 equal"),ifelse(new1_p_value0==new1_p_value2,c("0 and 2 equal"),c("none equal"))))
+ct1_all_equal<-length(which(results_0.01=="all equal"))/length(results_0.01)
+ct1_all_equal 
+ct1_01<-length(which(results_0.01=="0 and 1 equal"))/length(results_0.01)
+ct1_01
+ct1_02<-length(which(results_0.01=="0 and 2 equal"))/length(results_0.01)
+ct1_02
+ct1_12<-length(which(results_0.01=="1 and 2 equal"))/length(results_0.01)
+ct1_12
+
+#################
+# Graphical simulation
+#################
+library(ordinal)
+par(mfrow=c(4,2))
+par(mar=c(4.1,4.2,2,5))
+
+#####(a) Unconstrained example  1
+n <- 100
+set.seed(201)
+# covariate
+x <- rep(2:6,each=n)+rnorm(5*n,0,0.2)
+x <- sort(runif(5*n,1,7))
+
+# True latent continuous response
+w <- rep(0.5:5.5,each=n)
+z <- 2+x*2#+c(0,0.4,2.0,3.6,4)[w]
+minz <- min(z)
+maxz <- max(z)
+z <- 4*(z-minz)/(maxz-minz)
+zw <- factor(w)
+czw <- z+rnorm(5*n,0,0.1)
+y3 <- factor(cut(czw,c(-1000,0.2,0.4,0.6,2.8,1000)),labels=1:5)
+cy3 <- as.numeric(as.character(y3))
+xp <- seq(min(x),max(x), length=100)
+clmfit <- clm(y3~x,data=data.frame(y=y3,x=x))
+ypred1 <- predict(clmfit,newdata=data.frame(x=x),type="linear.predictor")$eta2
+ypredzero <- mean(predict(clmfit,newdata=data.frame(x=0),type="linear.predictor")$eta2[-1])
+ypredmeanx <- mean(predict(clmfit,newdata=data.frame(x=mean(x)),type="linear.predictor")$eta2[-1])
+newslope <- coef(clmfit)["x"]/(sd(rowMeans(ypred1[,-1]))/sd(czw))
+newint <- mean(czw)+(ypredmeanx-ypredzero)/(sd(rowMeans(ypred1[,-1]))/sd(czw))
+plot(czw ~ x,xlab="",ylab="",xaxt="n",yaxt="n",ylim=c(-0.5,4.5),col.lab="red",col="grey",main="(a) Unconstrained example 1",cex.main=1.2,cex.lab=1.2) # ordinal as linear
+
+#Ordinal  response fit
+abline(coef=c(newint,newslope),lwd=3,col="blue")
+
+#Numerical response fit
+redlm <- lm(cy3-1~x)
+redslope <- coef(redlm)["x"]
+redint <- coef(redlm)["(Intercept)"]
+redint <- redint-(mean(predict(redlm))-mean(czw))
+abline(c(redint,redslope),col="red",lwd=2)
+
+#Latent response fit
+abline(lm(czw~x),lwd=2)
+abline(h=c(0.2,0.4,0.6,2.8),lty=3)
+axis(1,0:4, at = c(0,2,4,6,8),labels=c("0.0","2.0","4.0","6.0","8.0"),tick=TRUE,col="black")
+mtext("x",side=1,line=3,col="black",cex=0.82,cex.lab=1.2)
+axis(2,0:5, at = c(0.1,0.3,0.5,1.7,3.9),labels=c("1.0","2.0","3.0","4.0","5.0"),tick=TRUE, col.axis="red",las=2)
+axis(4,0:5, at = c(0,1,2,3,4),labels=c("1.0","2.0","3.0","4.0","5.0"),tick=TRUE, col.axis="black",las=2)
+mtext("y true values", side=4,line=3, col="black",cex=0.82,cex.lab=1.2)
+mtext("y numeric scores", side=2,line=3, col="red",cex=0.82,cex.lab=1.2)
+legend(x=4.9, y=2.3,legend=c("ordinal","latent", "numeric"),col=c("blue", "black","red"),lty=1, lwd=2,bty='n', cex=1)
+
+#Ordinal predictions
+clmfit <- clm(y3~x,data=data.frame(y=y3,x=x))
+ypred2 <- predict(clmfit,newdata=data.frame(x=x),type="class")
+ordinalp<-table(ypred2)
+
+#Latent predictions
+latent_model<-lm(czw~x)
+ypred3<-predict(latent_model,newdata=data.frame(x=x),type="response")
+
+#Using cutpoints we force as latent
+latentp<-table(cut(ypred3,breaks=c(-1000,0.2,0.4,0.6,2.8,1000)))
+
+#Numerical predictions
+ypred4<-predict(redlm,newdata=data.frame(x=x),type="response") 
+#To be in the half cutpoint (correcting for the -1 in formula)
+numeric<-table(round(ypred4+1))
+#As expected from the way they are defined, it cannot go below 3
+numericp<-c(0,0,144,194,162)
+
+#Plot on right
+counts<-rbind(ordinalp,latentp,numericp)
+barplot(counts,main="(a) Unconstrained example 1",
+        xlab="Category",ylab="Frequency", col=c("blue","black","red"),
+        legend = c("ordinal","latent","numeric"), beside=TRUE,args.legend = list(x = "topleft", bty = "n"),cex.main=1.2,cex.lab=1.2)
+
+#####(b) Unconstrained example 2
+par(mar=c(4.1,4.2,2,5))
+n <- 100
+set.seed(201)
+# covariate
+x <- rep(2:6,each=n)+rnorm(5*n,0,0.2)
+x <- sort(runif(5*n,1,7))
+
+# True latent continuous response
+w <- rep(0.5:5.5,each=n)
+z <- 2+x*2#+c(0,0.4,2.0,3.6,4)[w]
+minz <- min(z)
+maxz <- max(z)
+z <- 4*(z-minz)/(maxz-minz)
+zw <- factor(w)
+czw <- z+rnorm(5*n,0,0.1)
+y3<- factor(cut(czw,c(-1000,1,2.5,3.1,3.6,1000)),labels=1:5)
+cy <- as.numeric(as.character(y3))
+xp <- seq(min(x),max(x), length=100)
+clmfit <- clm(y3~x,data=data.frame(y=y3,x=x))
+ypred1 <- predict(clmfit,newdata=data.frame(x=x),type="linear.predictor")$eta2
+ypredzero <- mean(predict(clmfit,newdata=data.frame(x=0),type="linear.predictor")$eta2[-1])
+ypredmeanx <- mean(predict(clmfit,newdata=data.frame(x=mean(x)),type="linear.predictor")$eta2[-1])
+newslope <- coef(clmfit)["x"]/(sd(rowMeans(ypred1[,-1]))/sd(czw))
+newint <- mean(czw)+(ypredmeanx-ypredzero)/(sd(rowMeans(ypred1[,-1]))/sd(czw))
+plot(czw ~ x,xlab="",ylab="",xaxt="n",yaxt="n",ylim=c(-0.5,4.5),col.lab="red",col="grey",main="(b) Unconstrained example 2",cex.main=1.2) # ordinal as linear
+
+#Ordinal  response fit
+abline(coef=c(newint,newslope),lwd=4,col="blue",lty=1)
+
+#Numerical response  fit
+redlm <- lm(cy-1~x)
+redslope <- coef(redlm)["x"]
+redint <- coef(redlm)["(Intercept)"]
+redint <- redint-(mean(predict(redlm))-mean(czw))
+abline(c(redint,redslope),col="red",lwd=2)
+
+#Latent response fit
+abline(lm(czw~x),lwd=2)
+abline(h=c(1,2.5,3.1,3.6),lty=3)
+axis(1,0:5, at = c(0,2,4,6,8),labels=c("0.0","2.0","4.0","6.0","8.0"),tick=TRUE,col="black")
+mtext("x",side=1,line=3,col="black",cex=0.82)
+axis(2,0:4, at = c(0.5,1.8,2.8,3.4,4),labels=c("1.0","2.0","3.0","4.0","5.0"),tick=TRUE, col.axis="red",las=2)
+axis(4,0:4, at = c(0,1.0,2.0,3.0,4),labels=c("1.0","2.0","3.0","4.0","5.0"),tick=TRUE, col.axis="black",las=2)
+mtext("y true values", side=4,line=3, col="black",cex=0.82)
+mtext("y numeric scores", side=2,line=3, col="red",cex=0.82)
+legend(x=4.9, y=2.3,legend=c("ordinal","latent", "numeric"),col=c("blue", "black","red"),lty=1, lwd=2,bty='n', cex=1)
+
+#Ordinal predictions
+clmfit <- clm(y3~x,data=data.frame(y=y3,x=x))
+ypred2 <- predict(clmfit,newdata=data.frame(x=x),type="class")
+ordinalp<-table(ypred2)
+ordinalp<-c(116,199,74,58,53)
+
+#Latent predictions
+latent_model<-lm(czw~x)
+ypred3<-predict(latent_model,newdata=data.frame(x=x),type="response")
+
+#Using cutpoints we force as latent
+latentp<-table(cut(ypred3,breaks=c(-1000,1,2.5,3.1,3.6,1000)))
+latentp<-c(114,198,76,58,54)
+
+#Numerical predictions
+ypred4<-predict(redlm,newdata=data.frame(x=x),type="response") 
+
+#To be in the half cutpoint (correcting for the -1 in formula)
+table(round(ypred4)) 
+numeric<-table(round(ypred4+1))
+
+#They go through all the categories
+numericp<-c(129,122,122,126,1)
+
+# Plot on right
+counts<-rbind(ordinalp,latentp,numericp)
+barplot(counts,main="(b) Unconstrained example 2",
+        xlab="Category",ylab="Frequency", col=c("blue","black","red"),
+        legend = c("ordinal","latent","numeric"), beside=TRUE,args.legend = list(x = "topleft", bty = "n"),cex.main=1.2,ylim=c(0,250),names.arg=c(1,2,3,4,5),cex.lab=1.2)
+
+#####(c) Symmetric
+par(mar=c(4.1,4.2,2,5))
+n <- 100
+set.seed(201)
+# covariate
+x <- rep(2:6,each=n)+rnorm(5*n,0,0.2)
+x <- sort(runif(5*n,1,7))
+
+# True latent continuous response
+w <- rep(0.5:5.5,each=n)
+z <- 2+x*2#+c(0,0.4,2.0,3.6,4)[w]
+minz <- min(z)
+maxz <- max(z)
+z <- 4*(z-minz)/(maxz-minz)
+zw <- factor(w)
+czw <- z+rnorm(5*n,0,0.1)
+
+# Ordinal response
+y3 <- factor(cut(czw,c(-1000,0.2,1.2,2.8,3.8,1000)),labels=1:5)
+cy <- as.numeric(as.character(y3))
+xp <- seq(min(x),max(x), length=100)
+clmfit <- clm(y3~x,data=data.frame(y=y3,x=x),threshold="symmetric")
+ypred1 <- predict(clmfit,newdata=data.frame(x=x),type="linear.predictor")$eta2
+ypredzero <- mean(predict(clmfit,newdata=data.frame(x=0),type="linear.predictor")$eta2[-1])
+ypredmeanx <- mean(predict(clmfit,newdata=data.frame(x=mean(x)),type="linear.predictor")$eta2[-1])
+newslope <- coef(clmfit)["x"]/(sd(rowMeans(ypred1[,-1]))/sd(czw))
+newint <- mean(czw)+(ypredmeanx-ypredzero)/(sd(rowMeans(ypred1[,-1]))/sd(czw))
+plot(czw ~ x,xlab="",ylab="",xaxt="n",yaxt="n",ylim=c(-0.5,4.5),col.lab="red",col="grey",main="(c) Symmetric",cex.main=1.2) 
+
+#Ordinal response fit
+abline(coef=c(newint,newslope),lwd=3,col="blue")
+
+#Numerical response fit
+redlm <- lm(cy-1~x)
+redslope <- coef(redlm)["x"]
+redint <- coef(redlm)["(Intercept)"]
+redint <- redint-(mean(predict(redlm))-mean(czw))
+abline(c(redint,redslope),col="red",lwd=2)
+
+#Latent response fit
+abline(lm(czw~x),lwd=2)
+abline(h=c(0.2,1.2,2.8,3.8),lty=3)
+axis(1,0:4, at = c(0,2,4,6,8),labels=c("0.0","2.0","4.0","6.0","8.0"),tick=TRUE,col="black")
+mtext("x",side=1,line=3,col="black",cex=0.82)
+axis(2,0:4, at = c(0,0.7,2,3.3,4),labels=c("1.0","2.0","3.0","4.0","5.0"),tick=TRUE, col.axis="red",las=2)
+axis(4,0:4, at = c(0.0,1.0,2.0,3.0,4.0),labels=c("1.0","2.0","3.0","4.0","5.0"),tick=TRUE, col.axis="black",las=2)
+mtext("y true values", side=4,line=3, col="black",cex=0.82)
+mtext("y numeric scores", side=2,line=3, col="red",cex=0.82)
+legend(x=4.9, y=2.3,legend=c("ordinal","latent", "numeric"),col=c("blue", "black","red"),lty=1, lwd=2,bty='n', cex=1)
+
+#Ordinal predictions
+clmfit <- clm(y3~x,data=data.frame(y=y3,x=x))
+ypred2 <- predict(clmfit,newdata=data.frame(x=x),type="class")
+ordinalp<-table(ypred2)
+
+#Latent predictions
+latent_model<-lm(czw~x)
+ypred3<-predict(latent_model,newdata=data.frame(x=x),type="response")
+
+#Using cutpoints we force as latent
+latentp<-table(cut(ypred3,breaks=c(-1000,0.2,1.2,2.8,3.8,1000)))
+
+#Numerical predictions
+ypred4<-predict(redlm,newdata=data.frame(x=x),type="response") 
+
+#To be in the half cutpoint (correcting for the -1 in formula)
+numeric<-table(round(ypred4+1))
+
+#As expected from the way they are defined, it cannot go beyond 4
+numericp<-c(7,158,170,165,0)
+
+#Plot on right
+counts<-rbind(ordinalp,latentp,numericp)
+barplot(counts,main="(c) Symmetric",
+        xlab="Category",ylab="Frequency", col=c("blue","black","red"),
+        legend = c("ordinal","latent","numeric"), beside=TRUE,args.legend = list(x = "topleft", bty = "n"),cex.main=1.2,ylim=c(0,250),cex.lab=1.2)
+
+#####(d) Equidistant
+par(mar=c(4.1,4.2,2,5))
+n <- 100
+set.seed(201)
+# covariate
+x <- rep(2:6,each=n)+rnorm(5*n,0,0.2)
+x <- sort(runif(5*n,1,7))
+
+# True latent continuous response
+w <- rep(0.5:5.5,each=n)
+z <- 2+x*2#+c(0,0.4,2.0,3.6,4)[w]
+minz <- min(z)
+maxz <- max(z)
+z <- 4*(z-minz)/(maxz-minz)
+zw <- factor(w)
+czw <- z+rnorm(5*n,0,0.1)
+
+# Ordinal response
+y3 <- factor(cut(czw,c(-1000,0.5,1.5,2.5,3.5,1000)),labels=1:5)
+cy <- as.numeric(as.character(y3))
+xp <- seq(min(x),max(x), length=100)
+clmfit <- clm(y3~x,data=data.frame(y=y3,x=x),threshold="equidistant")
+ypred1 <- predict(clmfit,newdata=data.frame(x=x),type="linear.predictor")$eta2
+ypredzero <- mean(predict(clmfit,newdata=data.frame(x=0),type="linear.predictor")$eta2[-1])
+ypredmeanx <- mean(predict(clmfit,newdata=data.frame(x=mean(x)),type="linear.predictor")$eta2[-1])
+newslope <- coef(clmfit)["x"]/(sd(rowMeans(ypred1[,-1]))/sd(czw))
+newint <- mean(czw)+(ypredmeanx-ypredzero)/(sd(rowMeans(ypred1[,-1]))/sd(czw))
+plot(czw ~ x,xlab="",ylab="",xaxt="n",yaxt="n",ylim=c(-0.5,4.5),col.lab="red",col="grey",main="(d) Equidistant",cex.main=1.2) # ordinal as linear
+
+#Ordinal response fit
+abline(coef=c(newint,newslope),lwd=3,col="blue")
+
+#Numerical response fit
+redlm <- lm(cy-1~x)
+redslope <- coef(redlm)["x"]
+redint <- coef(redlm)["(Intercept)"]
+redint <- redint-(mean(predict(redlm))-mean(czw))
+abline(c(redint,redslope),col="red",lwd=2)
+
+#Latent response fit
+abline(lm(czw~x),lwd=2)
+abline(h=c(0.2,1.2,2.2,3.2),lty=3)
+axis(1,0:4, at = c(0,2,4,6,8),labels=c("0.0","2.0","4.0","6.0","8.0"),tick=TRUE,col="black")
+mtext("x",side=1,line=3,col="black",cex=0.82)
+axis(2,0:4, at = c(0.4085,1.2255,1.5719,2.8595,4.134),labels=c("1.0","2.0","3.0","4.0","5.0"),tick=TRUE, col.axis="red",las=2)
+axis(4,0:4, at = c(0,1,2,3,4),labels=c("1.0","2.0","3.0","4.0","5.0"),tick=TRUE, col.axis="black",las=2)
+mtext("y true values", side=4,line=3, col="black",cex=0.82)
+mtext("y numeric scores", side=2,line=3, col="red",cex=0.82)
+legend(x=4.9, y=2.3,legend=c("ordinal","latent", "numeric"),col=c("blue", "black","red"),lty=1, lwd=2,bty='n', cex=1)
+
+#Ordinal predictions
+clmfit <- clm(y3~x,data=data.frame(y=y3,x=x))
+ypred2 <- predict(clmfit,newdata=data.frame(x=x),type="class")
+ordinalp<-table(ypred2)
+
+#Latent predictions
+latent_model<-lm(czw~x)
+ypred3<-predict(latent_model,newdata=data.frame(x=x),type="response")
+#Using cutpoints we force as latent
+latentp<-table(cut(ypred3,breaks=c(-1000,0.5,1.5,2.5,3.5,1000)))
+
+#Numerical predictions
+ypred4<-predict(redlm,newdata=data.frame(x=x),type="response") 
+#To be in the half cutpoint (correcting for the -1 in formula)
+numeric<-table(round(ypred4+1))
+numericp<-numeric
+
+#Plot on right
+counts<-rbind(ordinalp,latentp,numericp)
+barplot(counts,main="(d) Equidistant",
+        xlab="Category",ylab="Frequency", col=c("blue","black","red"),
+        legend = c("ordinal","latent","numeric"), beside=TRUE,args.legend = list(x = "topleft", bty = "n"),cex.main=1.2,ylim=c(0,250),cex.lab=1.2)
