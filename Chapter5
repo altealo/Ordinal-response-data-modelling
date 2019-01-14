@@ -1,1 +1,229 @@
-# Chapter5
+##################
+# Chapter5 - Goodness of fit and residual diagnostics.
+##################
+# January 2019
+##################
+# Quadratic scenarios
+#################
+######################################################################################################
+### The goal of these simulations is to 
+### 1. compare the performance of L-S, D-S and surrogate residuals, and 
+### 2. extend work in Liu and Zhang (2018, JASA)
+######################################################################################################
+#######################
+##Equidistant thresholds (0,4,8)
+#######################
+#Quadratic-Quadratic-Quadratic and Quadratic-Quadratic-Linear subscenarios 
+#######################
+#######################################################################################################
+#Cumulative logit model
+#######################################################################################################
+#Load libraries
+library("ordinal")
+library("tmvtnorm")
+library("VGAM")
+library("rms")
+###############################################################
+### Function used to ordinalize a continous variable by Liu and Zhang (2018, JASA)
+### Ordinal value: 1,2,3...
+### Inputs: 
+### 1. "z" is a vector to be ordinalized; 
+### 2. "threshold" is a vector specifying the cut-off points
+### Output: the returned value is also a vector
+###############################################################
+ordinalize<-function(z,threshold){ 
+  oo<-function(zz){
+    ordinal.value<-1;index<-1
+    while(index<=length(threshold) && zz>threshold[index]) {ordinal.value<-ordinal.value+1;index<-index+1}
+    return(ordinal.value)
+  }
+  return(sapply(z,oo))
+}
+
+#Initialise vectors
+#Surrogate
+xlp_value_sur<-vector("list",10000)
+xp_value_sur<-vector("list",10000)
+x2p_value_sur<-vector("list",10000)
+count_sur<-vector("list",500)
+count_sur2<-vector("list",500)
+#L-S
+ls_res<-vector("list",500)
+residlfit_ls<-vector("list",500)
+xlp_value_ls<-vector("list",500)
+residfit_ls<-vector("list",500)
+xp_value_ls<-vector("list",10000)
+x2p_value_ls<-vector("list",10000)
+count_ls<-vector("list",500)
+count_ls2<-vector("list",500)
+#D-S
+residlfit_ds<-vector("list",500)
+xlp_value_ds
+residfit_ds<-vector("list",500)
+clm_res<-vector("list",500)
+xp_value_ds<-vector("list",10000)
+x2p_value_ds<-vector("list",10000)
+count_ds<-vector("list",500)
+count_ds2<-vector("list",500)
+
+for(j in 1:10000){
+set.seed(j)
+#########################################################################
+### Simulate latent variable Z from a quadratic function of X plus noise
+### The ordinal outcome W is obtained by discretizing Z
+########################################################################
+n<-500
+  
+alpha<-16;beta_1<--8;beta_2<-1
+thrd<-c(0,4,8)
+  
+X<-runif(n,1,7)
+RES<-rnorm(n)
+Z<-alpha+beta_1*X+beta_2*(X^2)+RES
+W<-ordinalize(Z,thrd)
+table(W)
+    
+  ################################################################
+  ### Model diagnostics when the model is specified correctly
+  ###############################################################
+  X_1<-X;X_2<-X^2
+  model<-vglm(formula=(W-1)~X_1+X_2,family = cumulative(link = logit,parallel = TRUE))
+  response<-as.ordered(W-1)
+  model_c<-clm(response~X_1+X_2,link="logit")
+  model_l<-lrm(response~X_1+X_2,x=TRUE,y=TRUE)
+  #as.numeric(coef(summary(model))[,4][4]) p-value X1
+  #as.numeric(coef(summary(model))[,4][5]) p-value X2
+  alpha.hat<--coef(model)[1];beta_1.hat<--coef(model)[4];beta_2.hat<--coef(model)[5]
+  thrd.hat<-c(0,coef(model)[2]-coef(model)[1],coef(model)[3]-coef(model)[1])
+
+  #####Surrogate residuals
+  residual.bootstrap<-function(w,x){
+    cc<-c(-Inf,thrd.hat,Inf)
+    res<-rtmvnorm(1,algorithm="gibbs",mean=(alpha.hat+beta_1.hat*x+beta_2.hat*x^2),sigma=1,lower=cc[w],upper=cc[w+1])-(alpha.hat+beta_1.hat*x+beta_2.hat*x^2)
+  }
+  res.boot<-rep(NA,n)
+  for(i in 1:n){
+  res.boot[i]<-residual.bootstrap(W[i],X[i])
+  ### Linear model of surrogate residuals
+  residlfit <- lm(res.boot~X_1)
+  xlp_value_sur[[i]]<-anova(residlfit)$'Pr(>F)'[2]
+  ### Quadratic model of surrogate residuals
+  residfit <- lm(res.boot~X_1+X_2)
+  xp_value_sur[[i]]<-anova(residlfit)$'Pr(>F)'[2]
+  x2p_value_sur[[i]]<-anova(residlfit)$'Pr(>F)'[1]
+  }
+  
+  ##### L-S residuals
+  ls_res[[j]]<-residuals(model_l,type="li.shepherd")
+  ### Linear model of L-S residuals
+  residlfit_ls[[j]] <- lm(ls_res[[j]]~X_1)
+  xlp_value_ls[[j]]<-anova(residlfit_ls[[j]])$'Pr(>F)'[2]
+  ### Quadratic model of L-S residuals
+  residfit_ls[[j]] <- lm(ls_res[[j]]~X_1+X_2)
+  xp_value_ls[[j]]<-anova(residfit_ls[[j]])$'Pr(>F)'[2]
+  x2p_value_ls[[j]]<-anova(residfit_ls[[j]])$'Pr(>F)'[1]
+  
+  ##### D-S residuals
+  clm.residuals = function(obj) {
+  preds = predict(obj, type="cum.prob")
+  residuals = runif(length(preds$cprob1))*(preds$cprob1-preds$cprob2) + preds$cprob2
+  return(qnorm(residuals))}
+  clm_res[[j]]<-clm.residuals(model_c)
+  ### Linear model of D-S residuals
+  residlfit_ds[[j]]<- lm(clm_res[[j]]~X_1)
+  xlp_value_ds[[j]]<-anova(residfit_ds[[j]])$'Pr(>F)'[2]
+  ### Quadratic model of D-S residuals
+  residfit_ds[[j]]<- lm(clm_res[[j]]~X_1+X_2)
+  xp_value_ds[[j]]<-anova(residfit_ds[[j]])$'Pr(>F)'[2]
+  x2p_value_ds[[j]]<-anova(residfit_ds[[j]])$'Pr(>F)'[1]
+  
+  ##### Plots L-S, D-S and surrogate residuals when the model is correct
+  par(mfrow=c(3,3))
+  
+  #L-S
+  plot(X_1,ls_res[[j]], ylim=c(-1,1), xlab="X",ylab="L-S residuals",main="(a)",cex.lab=1.5)
+  abline(h=0,lty=2,lwd=1)
+  plot(X_2,ls_res[[j]], ylim=c(-1,1), xlab=expression(X^2),ylab="L-S residuals",main="(b)",cex.lab=1.5)
+  abline(h=0,lty=2,lwd=1)
+  sample.ref<-runif(10000,min=-1,max=1)
+  qqplot(sample.ref,ls_res[[j]],main="(c)",ylab="L-S residuals",xlab="U(-1,1) distribution",cex.lab=1.5)
+  abline(0,1,col="red",lwd=1)
+  
+  #D-S
+  plot(clm.residuals(model_c)~X_1,ylab="D-S residuals",cex.lab=1.5,main="(d)",xlab="X")
+  abline(h=0,col="black",lty=2,lwd=1)
+  plot(clm.residuals(model_c)~X_2,ylab="D-S residuals",cex.lab=1.5,main="(e)",xlab=expression(X^2))
+  abline(h=0,col="black",lty=2,lwd=1)
+  qqnorm(clm.residuals(model_c),ylab="D-S residuals",xlab="Normal distribution",cex.lab=1.5,main="(f)")
+  qqline(clm.residuals(model_c),col="red",lwd=1)
+  
+  #Surrogate
+  plot(X_1,res.boot, ylim=c(-3,3),xlab="X",ylab="Surrogate residuals",main="(g)",cex.lab=1.5)
+  abline(h=0,lty=2,lwd=1)
+  plot(X_1,res.boot,ylim=c(-3,3),xlab=expression(X^2),ylab="Surrogate residuals",main="(h)",cex.lab=1.5)
+  abline(h=0,lty=2,lwd=1)
+  qqplot(RES,res.boot, xlab="Normal distribution",ylab="Surrogate residuals",main="(i)",cex.lab=1.5)
+  abline(0,1,col="red",lwd=1)
+  
+  count_ls[[j]]<-length(xp_value_ls[xp_value_ls[[j]]<=0.05])
+  count_ds[[j]]<-length(xp_value_ds[xp_value_ds[[j]]<=0.05])
+  count_sur[[j]]<-length(xp_value_sur[xp_value_sur[[j]]<=0.05])
+  count_ls2[[j]]<-length(x2p_value_ls[x2p_value_ls[[j]]<=0.05])
+  count_ds2[[j]]<-length(x2p_value_ds[x2p_value_ds[[j]]<=0.05])
+  count_sur2[[j]]<-length(x2p_value_sur[x2p_value_sur[[j]]<=0.05])
+}
+
+table(unlist(count_ls))
+table(unlist(count_ds))
+table(unlist(count_sur))
+
+table(unlist(count_ls2))
+table(unlist(count_ds2))
+table(unlist(count_sur2))
+
+#Histograms of the p-values of the linear fit of the CLM residuals
+par(mfrow=c(3,1))
+hist(unlist(xp_value_ls),xlab="p-values X term",main="",ylim=c(0,500),xlim=c(0,1),breaks=c(0,0.8,0.9,1.0),freq=TRUE,cex.lab=1.5)
+hist(unlist(xp_value_ds),xlab="p-values X term",main="",ylim=c(0,500),xlim=c(0,1),cex.lab=1.5)
+hist(unlist(xp_value_sur),xlab="p-values X term",main="",ylim=c(0,500),xlim=c(0,1),cex.lab=1.5,freq=TRUE)
+
+mtext("(a) L-S residuals", side=3,line=-1.5,outer=TRUE)
+mtext("(b) D-S residuals", side=3,line=-22,outer=TRUE)
+mtext("(c) Surrogate residuals", side=3,line=-42.5,outer=TRUE)
+
+
+length(xp_value_ls[xp_value_ls<=0.05])
+length(xp_value_ds[xp_value_ds<=0.05])
+length(xp_value_sur[xp_value_sur<=0.05])
+
+#Histograms of the p-values of the quadratic fit of the CLM residuals
+par(mfrow=c(3,2))
+hist(unlist(xp_value_ls),xlab="p-values X term",main="",ylim=c(0,500),xlim=c(0,1),breaks=c(0,0.8,0.9,1.0),freq=TRUE,cex.lab=1.5)
+hist(unlist(x2p_value_ls), xlab=expression(p~-~values~ X^2~term),main="",ylim=c(0,500),xlim=c(0,1),breaks=c(0,0.8,0.9,1.0),freq=TRUE,cex.lab=1.5)
+
+hist(unlist(xp_value_ds),xlab="p-values X term",main="",ylim=c(0,500),xlim=c(0,1),cex.lab=1.5)
+hist(unlist(x2p_value_ds), xlab=expression(p~-~values~ X^2~term),main="",ylim=c(0,500),xlim=c(0,1),cex.lab=1.5)
+
+hist(unlist(xp_value_sur),xlab="p-values X term",main="",ylim=c(0,500),xlim=c(0,1),cex.lab=1.5,freq=TRUE)
+hist(unlist(x2p_value_sur), xlab=expression(p~-~values~ X^2~term),main="",ylim=c(0,500),xlim=c(0,1),cex.lab=1.5,freq=TRUE)
+
+mtext("(a) L-S residuals", side=3,line=-1.5,outer=TRUE)
+mtext("(b) D-S residuals", side=3,line=-22,outer=TRUE)
+mtext("(c) Surrogate residuals", side=3,line=-42.5,outer=TRUE)
+
+
+length(xp_value_ls[xp_value_ls<=0.05])
+length(x2p_value_ls[x2p_value_ls<=0.05])
+
+length(xp_value_ds[xp_value_ds<=0.05])
+length(x2p_value_ds[x2p_value_ds<=0.05])
+
+length(xp_value_sur[xp_value_sur<=0.05])
+length(x2p_value_sur[x2p_value_sur<=0.05])
+
+#######################################################################################################
+#Cumulative probit model
+#######################################################################################################
+#######################
+#Quadratic-Quadratic-Quadratic Quadratic-Quadratic-Linear subscenarios 
+#######################
