@@ -10,10 +10,11 @@
 ### 1. compare the performance of L-S, D-S and surrogate residuals, and 
 ### 2. extend work in Liu and Zhang (2018, JASA)
 ######################################################################################################
-#######################
+#####################################################################
 ##Equidistant thresholds (0,4,8)
+#####################################################################
 #######################
-#Quadratic-Quadratic-Quadratic and Quadratic-Quadratic-Linear subscenarios 
+#Quadratic-Quadratic-Linear and Quadratic-Quadratic-Quadratic subscenarios 
 #######################
 #######################################################################################################
 #Cumulative logit model
@@ -84,7 +85,7 @@ W<-ordinalize(Z,thrd)
 table(W)
     
   ################################################################
-  ### Model diagnostics when the model is specified correctly
+  ### Model diagnostics when the model is specified via a logit link function
   ###############################################################
   X_1<-X;X_2<-X^2
   model<-vglm(formula=(W-1)~X_1+X_2,family = cumulative(link = logit,parallel = TRUE))
@@ -225,5 +226,5 @@ length(x2p_value_sur[x2p_value_sur<=0.05])
 #Cumulative probit model
 #######################################################################################################
 #######################
-#Quadratic-Quadratic-Quadratic Quadratic-Quadratic-Linear subscenarios 
+#Quadratic-Quadratic-Linear and Quadratic-Quadratic-Quadratic subscenarios 
 #######################
