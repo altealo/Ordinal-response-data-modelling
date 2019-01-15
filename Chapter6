@@ -1,1 +1,863 @@
-#Chapter6
+##################
+# Chapter 6 - Solutions to negative predictions in PPOMs.
+##################
+# January 2019
+##################
+######################################################################################################
+# Model selection using constrained log-likelihood approach
+######################################################################################################
+### The goal of this analysis is to: 
+### determine the best PO/PPO fit for our data.
+######################################################################################################
+#Connectedness to nature example
+#7 categories response 
+############################################################################################
+#List of models under comparison: (*:PPO)
+# 1+CNS*+Cat* (done)
+# 1+CNS*+Cat (done)
+# 1+CNS*
+# 1+CNS+Cat* (done)
+# 1+Cat*
+# 1+CNS+Cat
+# 1+CNS
+# 1+Cat
+# 1
+############################################################################################
+#################
+# 1+CNS*+Cat* 
+#################
+#Data available at: https://www.dropbox.com/s/t52nyhj68rryqqs/melteddata.csv?dl=0
+melt_select_data<-read.csv(file="melteddata.csv", header=TRUE, sep=",")
+melt_select_data$id<-as.factor(melt_select_data$id)
+levels(melt_select_data$Category)<-c("Nature","Shopping")
+levels(melt_select_data$CNS)<-c("low","medium","high")
+melt_select_data$CNS<-as.factor(melt_select_data$CNS)
+
+#Libraries
+library(VGAM)
+
+#Models
+fitPO<-vglm(as.ordered(value) ~ CNS+Category, data= melt_select_data,family=cumulative(parallel=TRUE~CNS+Category))
+fitPPO<-vglm(as.ordered(value) ~ CNS+Category, data= melt_select_data,family=cumulative(parallel=FALSE~CNS+Category))
+invlogit<-function(x){1/(1+exp(-x))}
+
+#Standardise covariates
+CNS.min <- 1
+CNS.max <- 3
+Category.min <- 1
+Category.max <- 2
+melt_select_data$CNS.sc <- (melt_select_data$CNS-CNS.min)/(CNS.max-CNS.min)
+melt_select_data$cCategory.sc <- (melt_select_data$Category-Category.min)/(Category.max-Category.min)
+
+# Log-likelihood
+LL3 <- function(par,data)
+{
+  Y <- as.ordered(data[,4])
+  X <- cbind(data[,2],data[,3])
+  n <- length(Y)
+  C1 <- nlevels(as.ordered(Y))
+  
+  #Indicator matrix 
+  I1 <- matrix(rep(0,n*C1),n,C1)
+  I1[cbind(1:n,Y)] <- 1
+  
+  #Calculate cumulative probabilities P(Y<=1), P(Y <= 2), P(Y <= 3), P(Y <= 4), P(Y <= 5), P(Y <= 6)
+  lpar1 <- par[1]
+  lpar2 <- par[2]
+  lpar3 <- par[3]
+  lpar4 <- par[4]
+  lpar5 <- par[5]
+  lpar6 <- par[6]
+  gamma1 <- par[7]
+  gamma2 <- par[8]
+  gamma3 <- par[9]
+  gamma4 <- par[10]
+  gamma5 <- par[11]
+  gamma6 <- par[12]
+  zeta1 <- par[13]
+  zeta2 <- par[14]
+  zeta3 <- par[15]
+  zeta4 <- par[16]
+  zeta5 <- par[17]
+  zeta6 <- par[18]
+  logit1 <- lpar1 + gamma1*X[,1]+zeta1*X[,2]
+  logit2 <- lpar2 + gamma2*X[,1]+zeta2*X[,2]
+  logit3 <- lpar3 + gamma3*X[,1]+zeta3*X[,2]
+  logit4 <- lpar4 + gamma4*X[,1]+zeta4*X[,2]
+  logit5 <- lpar5 + gamma5*X[,1]+zeta5*X[,2]
+  logit6 <- lpar6 + gamma6*X[,1]+zeta6*X[,2]
+  Logit<-cbind(logit1,logit2,logit3,logit4,logit5,logit6)   
+  P<-invlogit(Logit)
+  
+  #Set Initial response probabilities to 0
+  Pi<-matrix(rep(0,n*C1),n,C1) 
+  
+  #j=1 and j=C always same expression
+  Pi[,1]<-P[,1]
+  Pi[,C1]<-1-P[,C1-1]
+  for(j in 2:(C1-1)){
+    Pi[,j]<-P[,j]-P[,j-1] 
+  }
+  
+  #Log-likelihood:element-wise multiplication
+  LL<--sum(I1*log(Pi))
+  return(LL)
+}
+
+#Linear constraints
+#Constraint matrix 15x18
+ui<-cbind(rep(c(-1,0,0,0,0),4),rep(c(1,-1,0,0,0),4),rep(c(0,1,-1,0,0),4),rep(c(0,0,1,-1,0),4),
+rep(c(0,0,0,1,-1),4),rep(c(0,0,0,0,1),4),
+c(0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,-1,0,0,0,0),
+c(0,0,0,0,0,1,-1,0,0,0,0,0,0,0,0,1,-1,0,0,0),
+c(0,0,0,0,0,0,1,-1,0,0,0,0,0,0,0,0,1,-1,0,0),
+c(0,0,0,0,0,0,0,1,-1,0,0,0,0,0,0,0,0,1,-1,0),
+c(0,0,0,0,0,0,0,0,1,-1,0,0,0,0,0,0,0,0,1,-1),
+c(0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1),
+c(0,0,0,0,0,0,0,0,0,0,-1,0,0,0,0,-1,0,0,0,0),
+c(0,0,0,0,0,0,0,0,0,0,1,-1,0,0,0,1,-1,0,0,0),
+c(0,0,0,0,0,0,0,0,0,0,0,1,-1,0,0,0,1,-1,0,0),
+c(0,0,0,0,0,0,0,0,0,0,0,0,1,-1,0,0,0,1,-1,0),
+c(0,0,0,0,0,0,0,0,0,0,0,0,0,1,-1,0,0,0,1,-1),
+c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1))
+
+#Constraint vector 20
+ci<-rep(0,20) 
+#Starting values 18
+start<-c(0.1,0.2,0.3,0.4,0.5,0.6,0.3,0.8,0.9,1.0,1.1,1.2,0.3,1.4,1.5,1.6,1.7,1.8) 
+
+#Check that they satisfy the constraints (all positive)
+ui%*%start
+
+#Optimisation using constrOptim
+#theta:numeric (vector) starting value (of length p): must be in the feasible region.
+#ui:constraint matrix (k x p), see below.
+#ci:constraint vector of length k
+optimPPO1<-constrOptim(theta=start,f=LL3,ui=ui,ci=ci,data=melt_select_data,method="Nelder-Mead")
+#$value
+#[1] 1310.839
+optimPPO2<-constrOptim(theta=optimPPO1$par,f=LL3,ui=ui,ci=ci,data=melt_select_data,method="Nelder-Mead")
+optimPPO3<-constrOptim(theta=optimPPO2$par,f=LL3,ui=ui,ci=ci,data=melt_select_data,method="Nelder-Mead")
+optimPPO4<-constrOptim(theta=optimPPO3$par,f=LL3,ui=ui,ci=ci,data=melt_select_data,method="Nelder-Mead")
+optimPPO5<-constrOptim(theta=optimPPO4$par,f=LL3,ui=ui,ci=ci,data=melt_select_data,method="Nelder-Mead")
+optimPPO6<-constrOptim(theta=optimPPO5$par,f=LL3,ui=ui,ci=ci,data=melt_select_data,method="Nelder-Mead")
+optimPPO7<-constrOptim(theta=optimPPO6$par,f=LL3,ui=ui,ci=ci,data=melt_select_data,method="Nelder-Mead")
+optimPPO8<-constrOptim(theta=optimPPO7$par,f=LL3,ui=ui,ci=ci,data=melt_select_data,method="Nelder-Mead")
+optimPPO9<-constrOptim(theta=optimPPO8$par,f=LL3,ui=ui,ci=ci,data=melt_select_data,method="Nelder-Mead")
+optimPPO10<-constrOptim(theta=optimPPO9$par,f=LL3,ui=ui,ci=ci,data=melt_select_data,method="Nelder-Mead")
+optimPPO11<-constrOptim(theta=optimPPO10$par,f=LL3,ui=ui,ci=ci,data=melt_select_data,method="Nelder-Mead")
+optimPPO12<-constrOptim(theta=optimPPO11$par,f=LL3,ui=ui,ci=ci,data=melt_select_data,method="Nelder-Mead")
+optimPPO13<-constrOptim(theta=optimPPO12$par,f=LL3,ui=ui,ci=ci,data=melt_select_data,method="Nelder-Mead")
+optimPPO14<-constrOptim(theta=optimPPO13$par,f=LL3,ui=ui,ci=ci,data=melt_select_data,method="Nelder-Mead")
+optimPPO15<-constrOptim(theta=optimPPO14$par,f=LL3,ui=ui,ci=ci,data=melt_select_data,method="Nelder-Mead")
+optimPPO16<-constrOptim(theta=optimPPO15$par,f=LL3,ui=ui,ci=ci,data=melt_select_data,method="Nelder-Mead")
+optimPPO17<-constrOptim(theta=optimPPO16$par,f=LL3,ui=ui,ci=ci,data=melt_select_data,method="Nelder-Mead")
+optimPPO18<-constrOptim(theta=optimPPO17$par,f=LL3,ui=ui,ci=ci,data=melt_select_data,method="Nelder-Mead")
+optimPPO19<-constrOptim(theta=optimPPO18$par,f=LL3,ui=ui,ci=ci,data=melt_select_data,method="Nelder-Mead")
+optimPPO20<-constrOptim(theta=optimPPO19$par,f=LL3,ui=ui,ci=ci,data=melt_select_data,method="Nelder-Mead")
+optimPPO21<-constrOptim(theta=optimPPO20$par,f=LL3,ui=ui,ci=ci,data=melt_select_data,method="Nelder-Mead")
+optimPPO22<-constrOptim(theta=optimPPO21$par,f=LL3,ui=ui,ci=ci,data=melt_select_data,method="Nelder-Mead")
+optimPPO23<-constrOptim(theta=optimPPO22$par,f=LL3,ui=ui,ci=ci,data=melt_select_data,method="Nelder-Mead")
+
+optim_PPO_final<-c(optimPPO1$value,optimPPO2$value,optimPPO3$value,optimPPO4$value,optimPPO5$value,optimPPO6$value,optimPPO7$value,optimPPO8$value,optimPPO9$value,optimPPO10$value,optimPPO11$value,optimPPO12$value,optimPPO13$value,optimPPO14$value,optimPPO15$value,optimPPO16$value,optimPPO17$value,optimPPO18$value,optimPPO19$value,optimPPO20$value,optimPPO21$value,optimPPO22$value,optimPPO23$value)
+plot(optim_PPO_final)
+
+LL3(par=start,data=melt_select_data)
+
+#AIC=2p-2logLik
+2*length(fitPO@coefficients)+2*optimPPO23$value
+
+############################################################################################
+#################
+# 1+CNS*+Cat
+#################
+
+fitPO<-vglm(as.ordered(value) ~ CNS+Category, data= melt_select_data,family=cumulative(parallel=TRUE~CNS+Category))
+fitPPOCNS<-vglm(as.ordered(value) ~ CNS+Category, data= melt_select_data,family=cumulative(parallel=FALSE~CNS))
+invlogit<-function(x){1/(1+exp(-x))}
+
+#Standardise covariates
+CNS.min <- 1
+CNS.max <- 3
+Category.min <- 1
+Category.max <- 2
+melt_select_data$CNS.sc <- (melt_select_data$CNS-CNS.min)/(CNS.max-CNS.min)
+melt_select_data$Category.sc <- (dat$Category-Category.min)/(Category.max-Category.min)
+#Reparameterisation
+LL3 <- function(par,data)
+{
+  Y <- as.ordered(data[,4])
+  X <- cbind(data[,2],data[,3])
+  n <- length(Y)
+  C1 <- nlevels(as.ordered(Y))
+  
+  #Indicator matrix 
+  I1 <- matrix(rep(0,n*C1),n,C1)
+  I1[cbind(1:n,Y)] <- 1
+  
+  #Calculate cumulative probabilities P(Y<=1), P(Y <= 2), P(Y <= 3), P(Y <= 4), P(Y <= 5), P(Y <= 6)
+  lpar1 <- par[1]
+  lpar2 <- par[2]
+  lpar3 <- par[3]
+  lpar4 <- par[4]
+  lpar5 <- par[5]
+  lpar6 <- par[6]
+  gamma1 <- par[7]
+  gamma2 <- par[8]
+  gamma3 <- par[9]
+  gamma4 <- par[10]
+  gamma5 <- par[11]
+  gamma6 <- par[12]
+  zeta1 <- par[13]
+  logit1 <- lpar1 + gamma1*X[,1]+zeta1*X[,2]
+  logit2 <- lpar2 + gamma2*X[,1]+zeta1*X[,2]
+  logit3 <- lpar3 + gamma3*X[,1]+zeta1*X[,2]
+  logit4 <- lpar4 + gamma4*X[,1]+zeta1*X[,2]
+  logit5 <- lpar5 + gamma5*X[,1]+zeta1*X[,2]
+  logit6 <- lpar6 + gamma6*X[,1]+zeta1*X[,2]
+  Logit<-cbind(logit1,logit2,logit3,logit4,logit5,logit6)   
+  P<-invlogit(Logit)
+  
+  #Set Initial response probabilities to 0
+  Pi<-matrix(rep(0,n*C1),n,C1) 
+  
+  #j=1 and j=C always same expression
+  Pi[,1]<-P[,1]
+  Pi[,C1]<-1-P[,C1-1]
+  for(j in 2:(C1-1)){
+    Pi[,j]<-P[,j]-P[,j-1] 
+  }
+  
+  #Log-likelihood:element-wise multiplication
+  LL<--sum(I1*log(Pi))
+  return(LL)
+}
+#Constraint matrix
+ui<-cbind(rep(c(-1,0,0,0,0),2),rep(c(1,-1,0,0,0),2),rep(c(0,1,-1,0,0),2),rep(c(0,0,1,-1,0),2),
+rep(c(0,0,0,1,-1),2),rep(c(0,0,0,0,1),2),c(0,0,0,0,0,-1,0,0,0,0),c(0,0,0,0,0,1,-1,0,0,0),
+c(0,0,0,0,0,0,1,-1,0,0),c(0,0,0,0,0,0,0,1,-1,0),c(0,0,0,0,0,0,0,0,1,-1),c(0,0,0,0,0,0,0,0,0,1),
+rep(0,10))
+
+#Constraint vector
+ci<-rep(0,7)
+#Starting values
+# start<-c(fitPPOPO@coefficients,0,0,0,0,0,0)
+start<-c(0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.10,1.11,1.12,0.13) #13 
+
+#Check that they satisfy the constraints (all positive)
+ui%*%start
+
+#Optimisation
+optimPPO1<-constrOptim(theta=start,f=LL3,ui=ui,ci=ci,data=melt_select_data,method="Nelder-Mead")
+optimPPO1$value
+LL3(par=start,data=melt_select_data)
+#AIC=2p-2logLik
+2*length(fitPO@coefficients)+2*optimPPO1$value
+
+############################################################################################
+#################
+# 1+Cat*
+#################
+
+#Data available at: https://www.dropbox.com/s/t52nyhj68rryqqs/melteddata.csv?dl=0
+setwd("C:/Users/al41543/Dropbox")
+melt_select_data<-read.csv(file="melteddata.csv", header=TRUE, sep=",")
+melt_select_data$id<-as.factor(melt_select_data$id)
+levels(melt_select_data$Category)<-c("Nature","Shopping")
+levels(melt_select_data$CNS)<-c("low","medium","high")
+melt_select_data$CNS<-as.factor(melt_select_data$CNS)
+
+#Models
+fitPO<-vglm(as.ordered(value) ~ Category, data= melt_select_data,family=cumulative(parallel=TRUE~Category))
+fitPPO<-vglm(as.ordered(value) ~ Category, data= melt_select_data,family=cumulative(parallel=FALSE~Category))
+invlogit<-function(x){1/(1+exp(-x))}
+
+#Standardise covariates
+CNS.min <- 1
+CNS.max <- 3
+Category.min <- 1
+Category.max <- 2
+melt_select_data$CNS.sc <- (melt_select_data$CNS-CNS.min)/(CNS.max-CNS.min)
+melt_select_data$cCategory.sc <- (melt_select_data$Category-Category.min)/(Category.max-Category.min)
+#Reparameterisation
+#LL3 <- function(par,z.min,z.max,data)
+LL3 <- function(par,data)
+{
+  Y <- as.ordered(data[,4])
+  X <- cbind(data[,2],data[,3])
+  n <- length(Y)
+  C1 <- nlevels(as.ordered(Y))
+  
+  #Indicator matrix 
+  I1 <- matrix(rep(0,n*C1),n,C1)
+  I1[cbind(1:n,Y)] <- 1
+  
+  #Calculate cumulative probabilities P(Y<=1), P(Y <= 2), P(Y <= 3), P(Y <= 4), P(Y <= 5), P(Y <= 6)
+  lpar1 <- par[1]
+  lpar2 <- par[2]
+  lpar3 <- par[3]
+  lpar4 <- par[4]
+  lpar5 <- par[5]
+  lpar6 <- par[6]
+  gamma1 <- par[7]
+  gamma2 <- par[8]
+  gamma3 <- par[9]
+  gamma4 <- par[10]
+  gamma5 <- par[11]
+  gamma6 <- par[12]
+  logit1 <- lpar1 + gamma1*X[,2]
+  logit2 <- lpar2 + gamma2*X[,2]
+  logit3 <- lpar3 + gamma3*X[,2]
+  logit4 <- lpar4 + gamma4*X[,2]
+  logit5 <- lpar5 + gamma5*X[,2]
+  logit6 <- lpar6 + gamma6*X[,2]
+  Logit<-cbind(logit1,logit2,logit3,logit4,logit5,logit6)   
+  P<-invlogit(Logit)
+  
+  #Set Initial response probabilities to 0
+  Pi<-matrix(rep(0,n*C1),n,C1) 
+  
+  #j=1 and j=C always same expression
+  Pi[,1]<-P[,1]
+  Pi[,C1]<-1-P[,C1-1]
+  for(j in 2:(C1-1)){
+    Pi[,j]<-P[,j]-P[,j-1] 
+  }
+  
+  #Log-likelihood:element-wise multiplication
+  LL<--sum(I1*log(Pi))
+  return(LL)
+}
+#Constraint matrix
+ui<-cbind(rep(c(-1,0,0,0,0),2),rep(c(1,-1,0,0,0),2),rep(c(0,1,-1,0,0),2),rep(c(0,0,1,-1,0),2),
+rep(c(0,0,0,1,-1),2),rep(c(0,0,0,0,1),2),c(0,0,0,0,0,-1,0,0,0,0),c(0,0,0,0,0,1,-1,0,0,0),
+c(0,0,0,0,0,0,1,-1,0,0),c(0,0,0,0,0,0,0,1,-1,0),c(0,0,0,0,0,0,0,0,1,-1),
+c(0,0,0,0,0,0,0,0,0,1))
+
+#Constraint vector
+ci<-rep(0,10)
+#Starting values
+start<-c(0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.10,1.11,1.12) #12 
+
+#Check that they satisfy the constraints (all positive)
+ui%*%start
+
+#Optimisation
+optimPPO1<-constrOptim(theta=start,f=LL3,ui=ui,ci=ci,data=melt_select_data,method="Nelder-Mead") #It works, $value[1]1260.364
+#Do I  need to run it next with $par as start, and subsequently until we  reach a stable value?
+
+LL3(par=start,data=melt_select_data)
+#-logLik(fitPPO) is not the same value!
+
+optimPPO1$value
+LL3(par=start,data=melt_select_data)
+#AIC=2p-2logLik
+2*length(fitPO@coefficients)+2*optimPPO1$value
+
+#################
+# 1+CNS*
+#################
+
+#Models
+fitPO<-vglm(as.ordered(value) ~ CNS, data= melt_select_data,family=cumulative(parallel=TRUE~CNS))
+fitPPO<-vglm(as.ordered(value) ~ CNS, data= melt_select_data,family=cumulative(parallel=FALSE~CNS))
+invlogit<-function(x){1/(1+exp(-x))}
+
+#Standardise covariates
+CNS.min <- 1
+CNS.max <- 3
+Category.min <- 1
+Category.max <- 2
+melt_select_data$CNS.sc <- (melt_select_data$CNS-CNS.min)/(CNS.max-CNS.min)
+melt_select_data$cCategory.sc <- (melt_select_data$Category-Category.min)/(Category.max-Category.min)
+# Log-likelihood
+LL3 <- function(par,data)
+{
+  Y <- as.ordered(data[,4])
+  X <- cbind(data[,2],data[,3])
+  n <- length(Y)
+  C1 <- nlevels(as.ordered(Y))
+  
+  #Indicator matrix 
+  I1 <- matrix(rep(0,n*C1),n,C1)
+  I1[cbind(1:n,Y)] <- 1
+  
+  #Calculate cumulative probabilities P(Y<=1), P(Y <= 2), P(Y <= 3), P(Y <= 4), P(Y <= 5), P(Y <= 6)
+  lpar1 <- par[1]
+  lpar2 <- par[2]
+  lpar3 <- par[3]
+  lpar4 <- par[4]
+  lpar5 <- par[5]
+  lpar6 <- par[6]
+  gamma1 <- par[7]
+  gamma2 <- par[8]
+  gamma3 <- par[9]
+  gamma4 <- par[10]
+  gamma5 <- par[11]
+  gamma6 <- par[12]
+  logit1 <- lpar1 + gamma1*X[,1]
+  logit2 <- lpar2 + gamma2*X[,1]
+  logit3 <- lpar3 + gamma3*X[,1]
+  logit4 <- lpar4 + gamma4*X[,1]
+  logit5 <- lpar5 + gamma5*X[,1]
+  logit6 <- lpar6 + gamma6*X[,1]
+  Logit<-cbind(logit1,logit2,logit3,logit4,logit5,logit6)   
+  P<-invlogit(Logit)
+  
+  #Set Initial response probabilities to 0
+  Pi<-matrix(rep(0,n*C1),n,C1) 
+  
+  #j=1 and j=C always same expression
+  Pi[,1]<-P[,1]
+  Pi[,C1]<-1-P[,C1-1]
+  for(j in 2:(C1-1)){
+    Pi[,j]<-P[,j]-P[,j-1] 
+  }
+  
+  #Log-likelihood:element-wise multiplication
+  LL<--sum(I1*log(Pi))
+  return(LL)
+}
+#Constraint matrix
+ui<-cbind(rep(c(-1,0,0,0,0),2),rep(c(1,-1,0,0,0),2),rep(c(0,1,-1,0,0),2),rep(c(0,0,1,-1,0),2),
+rep(c(0,0,0,1,-1),2),rep(c(0,0,0,0,1),2),c(0,0,0,0,0,-1,0,0,0,0),c(0,0,0,0,0,1,-1,0,0,0),
+c(0,0,0,0,0,0,1,-1,0,0),c(0,0,0,0,0,0,0,1,-1,0),c(0,0,0,0,0,0,0,0,1,-1),
+c(0,0,0,0,0,0,0,0,0,1))
+
+#Constraint vector
+ci<-rep(0,10)
+#Starting values
+start<-c(0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.10,1.11,1.12) #12 
+
+#Check that they satisfy the constraints (all positive)
+ui%*%start
+
+#Optimisation
+optimPPO1<-constrOptim(theta=start,f=LL3,ui=ui,ci=ci,data=melt_select_data,method="Nelder-Mead") #It works, $value[1] 1179.763
+#Do I  need to run it next with $par as start, and subsequently until we  reach a stable value?
+
+LL3(par=start,data=melt_select_data)
+
+#AIC=2p-2logLik
+
+2*length(fitPO@coefficients)+2*optimPPO1$value
+
+#################
+# 1+CNS+Cat*
+#################
+#Standardise covariates
+CNS.min <- 1
+CNS.max <- 3
+Category.min <- 1
+Category.max <- 2
+melt_select_data$x1.sc <- (melt_select_data$x1-x1.min)/(x1.max-x1.min)
+melt_select_data$x2.sc <- (melt_select_data$x2-x2.min)/(x2.max-x2.min)
+#Reparameterisation
+#LL3 <- function(par,z.min,z.max,data)
+LL3 <- function(par,data)
+{
+  Y <- as.ordered(data[,4])
+  X <- cbind(data[,2],data[,3])
+  n <- length(Y)
+  C1 <- nlevels(as.ordered(Y))
+  
+  #Indicator matrix 
+  I1 <- matrix(rep(0,n*C1),n,C1)
+  I1[cbind(1:n,Y)] <- 1
+  
+  #Calculate cumulative probabilities P(Y<=1), P(Y <= 2), P(Y <= 3), P(Y <= 4), P(Y <= 5), P(Y <= 6)
+  lpar1 <- par[1]
+  lpar2 <- par[2]
+  lpar3 <- par[3]
+  lpar4 <- par[4]
+  lpar5 <- par[5]
+  lpar6 <- par[6]
+  gamma1 <- par[7]
+  zeta1 <- par[8]
+  zeta2 <- par[9]
+  zeta3 <- par[10]
+  zeta4 <- par[11]
+  zeta5 <- par[12]
+  zeta6 <- par[13]
+  logit1 <- lpar1 + gamma1*X[,1]+zeta1*X[,2]
+  logit2 <- lpar2 + gamma1*X[,1]+zeta2*X[,2]
+  logit3 <- lpar3 + gamma1*X[,1]+zeta3*X[,2]
+  logit4 <- lpar4 + gamma1*X[,1]+zeta4*X[,2]
+  logit5 <- lpar5 + gamma1*X[,1]+zeta5*X[,2]
+  logit6 <- lpar6 + gamma1*X[,1]+zeta6*X[,2]
+  Logit<-cbind(logit1,logit2,logit3,logit4,logit5,logit6)   
+  P<-invlogit(Logit)
+  
+  #Set Initial response probabilities to 0
+  Pi<-matrix(rep(0,n*C1),n,C1) 
+  
+  #j=1 and j=C always same expression
+  Pi[,1]<-P[,1]
+  Pi[,C1]<-1-P[,C1-1]
+  for(j in 2:(C1-1)){
+    Pi[,j]<-P[,j]-P[,j-1] 
+  }
+  
+  #Log-likelihood:element-wise multiplication
+  LL<--sum(I1*log(Pi))
+  return(LL)
+}
+#Constraint matrix
+ui<-cbind(rep(c(-1,0,0,0,0),2),rep(c(1,-1,0,0,0),2),rep(c(0,1,-1,0,0),2),rep(c(0,0,1,-1,0),2),
+rep(c(0,0,0,1,-1),2),rep(c(0,0,0,0,1),2),rep(0,10),c(0,0,0,0,0,-1,0,0,0,0),c(0,0,0,0,0,1,-1,0,0,0),
+c(0,0,0,0,0,0,1,-1,0,0),c(0,0,0,0,0,0,0,1,-1,0),c(0,0,0,0,0,0,0,0,1,-1),c(0,0,0,0,0,0,0,0,0,1))
+
+#Constraint vector
+ci<-rep(0,7)
+#Starting values 13
+start<-c(0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.2,1.3)  
+
+#Check that they satisfy the constraints (all positive)
+ui%*%start
+
+#Optimisation
+optimPPO1<-constrOptim(theta=start,f=LL3,ui=ui,ci=ci,data=melt_select_data,method="Nelder-Mead")
+optimPPO1$value
+LL3(par=start,data=melt_select_data)
+#AIC=2p-2logLik
+2*length(fitPO@coefficients)+2*optimPPO1$value
+
+############################################################################################
+
+#############
+# 1+CNS+Cat
+#############
+#Models
+fitPO<-vglm(as.ordered(value) ~ CNS+Category, data= melt_select_data,family=cumulative(parallel=TRUE~CNS+Category))
+#CROSSING!!!
+invlogit<-function(x){1/(1+exp(-x))}
+
+#Standardise covariates
+CNS.min <- 1
+CNS.max <- 3
+Category.min <- 1
+Category.max <- 2
+melt_select_data$CNS.sc <- (melt_select_data$CNS-CNS.min)/(CNS.max-CNS.min)
+melt_select_data$cCategory.sc <- (melt_select_data$Category-Category.min)/(Category.max-Category.min)
+#Reparameterisation
+#LL3 <- function(par,z.min,z.max,data)
+LL3 <- function(par,data)
+{
+  Y <- as.ordered(data[,4])
+  X <- cbind(data[,2],data[,3])
+  n <- length(Y)
+  C1 <- nlevels(as.ordered(Y))
+  
+  #Indicator matrix 
+  I1 <- matrix(rep(0,n*C1),n,C1)
+  I1[cbind(1:n,Y)] <- 1
+  
+  #Calculate cumulative probabilities P(Y<=1), P(Y <= 2), P(Y <= 3), P(Y <= 4), P(Y <= 5), P(Y <= 6)
+  lpar1 <- par[1]
+  lpar2 <- par[2]
+  lpar3 <- par[3]
+  lpar4 <- par[4]
+  lpar5 <- par[5]
+  lpar6 <- par[6]
+  gamma1 <- par[7]
+  zeta1<-par[8]
+  logit1 <- lpar1 + gamma1*X[,1]+ zeta1*X[,2]
+  logit2 <- lpar2 + gamma1*X[,1]+ zeta1*X[,2]
+  logit3 <- lpar3 + gamma1*X[,1]+ zeta1*X[,2]
+  logit4 <- lpar4 + gamma1*X[,1]+ zeta1*X[,2]
+  logit5 <- lpar5 + gamma1*X[,1]+ zeta1*X[,2]
+  logit6 <- lpar6 + gamma1*X[,1]+ zeta1*X[,2]
+  Logit<-cbind(logit1,logit2,logit3,logit4,logit5,logit6)   
+  P<-invlogit(Logit)
+  
+  #Set Initial response probabilities to 0
+  Pi<-matrix(rep(0,n*C1),n,C1) 
+  
+  #j=1 and j=C always same expression
+  Pi[,1]<-P[,1]
+  Pi[,C1]<-1-P[,C1-1]
+  for(j in 2:(C1-1)){
+    Pi[,j]<-P[,j]-P[,j-1] 
+  }
+  
+  #Log-likelihood:element-wise multiplication
+  LL<--sum(I1*log(Pi))
+  return(LL)
+}
+#Constraint matrix
+ui<-cbind(c(-1,0,0,0,0),c(1,-1,0,0,0),c(0,1,-1,0,0),c(0,0,1,-1,0),c(0,0,0,1,-1),c(0,0,0,0,1),rep(0,5),rep(0,5))
+
+#Constraint vector
+ci<-rep(0,5)
+#Starting values
+start<-c(0.1,0.2,0.3,0.4,0.5,0.6,0,0) 
+
+#Check that they satisfy the constraints (all positive)
+ui%*%start
+
+optimPPO1<-constrOptim(theta=start,f=LL3,ui=ui,ci=ci,data=melt_select_data,method="Nelder-Mead")
+#$value
+#[1] 1047.021
+
+LL3(par=start,data=melt_select_data)
+#Log-likelihood
+logLik(fitPO)
+AIC(fitPO)
+optimPPO1$value
+LL3(par=start,data=melt_select_data)
+#AIC=2p-2logLik
+2*length(fitPO@coefficients)+2*optimPPO1$value
+
+################################################################################################
+
+################
+# 1+CNS
+################
+#Models
+fitPO<-vglm(as.ordered(value) ~ CNS, data= melt_select_data,family=cumulative(parallel=TRUE~CNS))
+#CROSSING!!!
+invlogit<-function(x){1/(1+exp(-x))}
+
+#Standardise covariates
+CNS.min <- 1
+CNS.max <- 3
+Category.min <- 1
+Category.max <- 2
+melt_select_data$CNS.sc <- (melt_select_data$CNS-CNS.min)/(CNS.max-CNS.min)
+melt_select_data$cCategory.sc <- (melt_select_data$Category-Category.min)/(Category.max-Category.min)
+#Reparameterisation
+#LL3 <- function(par,z.min,z.max,data)
+LL3 <- function(par,data)
+{
+  Y <- as.ordered(data[,4])
+  X <- cbind(data[,2],data[,3])
+  n <- length(Y)
+  C1 <- nlevels(as.ordered(Y))
+  
+  #Indicator matrix 
+  I1 <- matrix(rep(0,n*C1),n,C1)
+  I1[cbind(1:n,Y)] <- 1
+  
+  #Calculate cumulative probabilities P(Y<=1), P(Y <= 2), P(Y <= 3), P(Y <= 4), P(Y <= 5), P(Y <= 6)
+  lpar1 <- par[1]
+  lpar2 <- par[2]
+  lpar3 <- par[3]
+  lpar4 <- par[4]
+  lpar5 <- par[5]
+  lpar6 <- par[6]
+  gamma1 <- par[7]
+  logit1 <- lpar1 + gamma1*X[,1]
+  logit2 <- lpar2 + gamma1*X[,1]
+  logit3 <- lpar3 + gamma1*X[,1]
+  logit4 <- lpar4 + gamma1*X[,1]
+  logit5 <- lpar5 + gamma1*X[,1]
+  logit6 <- lpar6 + gamma1*X[,1]
+  Logit<-cbind(logit1,logit2,logit3,logit4,logit5,logit6)   
+  P<-invlogit(Logit)
+  
+  #Set Initial response probabilities to 0
+  Pi<-matrix(rep(0,n*C1),n,C1) 
+  
+  #j=1 and j=C always same expression
+  Pi[,1]<-P[,1]
+  Pi[,C1]<-1-P[,C1-1]
+  for(j in 2:(C1-1)){
+    Pi[,j]<-P[,j]-P[,j-1] 
+  }
+  
+  #Log-likelihood:element-wise multiplication
+  LL<--sum(I1*log(Pi))
+  return(LL)
+}
+#Constraint matrix
+ui<-cbind(c(-1,0,0,0,0),c(1,-1,0,0,0),c(0,1,-1,0,0),c(0,0,1,-1,0),c(0,0,0,1,-1),c(0,0,0,0,1),rep(0,5))
+
+#Constraint vector
+ci<-rep(0,5)
+#Starting values
+start<-c(0.1,0.2,0.3,0.4,0.5,0.6,0) 
+
+#Check that they satisfy the constraints (all positive)
+ui%*%start
+
+optimPPO1<-constrOptim(theta=start,f=LL3,ui=ui,ci=ci,data=melt_select_data,method="Nelder-Mead")
+#$value
+#[1] 1192.739
+
+
+LL3(par=start,data=melt_select_data)
+#Log-likelihood
+logLik(fitPO)
+optimPPO1$value
+LL3(par=start,data=melt_select_data)
+#AIC=2p-2logLik
+2*length(fitPO@coefficients)+2*optimPPO1$value
+
+############################################################################################
+#########
+# 1+Cat
+#########
+#Models
+fitPO<-vglm(as.ordered(value) ~ Category, data= melt_select_data,family=cumulative(parallel=TRUE~Category))
+#CROSSING!!!
+invlogit<-function(x){1/(1+exp(-x))}
+
+#Standardise covariates
+CNS.min <- 1
+CNS.max <- 3
+Category.min <- 1
+Category.max <- 2
+melt_select_data$CNS.sc <- (melt_select_data$CNS-CNS.min)/(CNS.max-CNS.min)
+melt_select_data$cCategory.sc <- (melt_select_data$Category-Category.min)/(Category.max-Category.min)
+#Reparameterisation
+#LL3 <- function(par,z.min,z.max,data)
+LL3 <- function(par,data)
+{
+  Y <- as.ordered(data[,4])
+  X <- cbind(data[,2],data[,3])
+  n <- length(Y)
+  C1 <- nlevels(as.ordered(Y))
+  
+  #Indicator matrix 
+  I1 <- matrix(rep(0,n*C1),n,C1)
+  I1[cbind(1:n,Y)] <- 1
+  
+  #Calculate cumulative probabilities P(Y<=1), P(Y <= 2), P(Y <= 3), P(Y <= 4), P(Y <= 5), P(Y <= 6)
+  lpar1 <- par[1]
+  lpar2 <- par[2]
+  lpar3 <- par[3]
+  lpar4 <- par[4]
+  lpar5 <- par[5]
+  lpar6 <- par[6]
+  gamma1 <- par[7]
+  logit1 <- lpar1 + gamma1*X[,2]
+  logit2 <- lpar2 + gamma1*X[,2]
+  logit3 <- lpar3 + gamma1*X[,2]
+  logit4 <- lpar4 + gamma1*X[,2]
+  logit5 <- lpar5 + gamma1*X[,2]
+  logit6 <- lpar6 + gamma1*X[,2]
+  Logit<-cbind(logit1,logit2,logit3,logit4,logit5,logit6)   
+  P<-invlogit(Logit)
+  
+  #Set Initial response probabilities to 0
+  Pi<-matrix(rep(0,n*C1),n,C1) 
+  
+  #j=1 and j=C always same expression
+  Pi[,1]<-P[,1]
+  Pi[,C1]<-1-P[,C1-1]
+  for(j in 2:(C1-1)){
+    Pi[,j]<-P[,j]-P[,j-1] 
+  }
+  
+  #Log-likelihood:element-wise multiplication
+  LL<--sum(I1*log(Pi))
+  return(LL)
+}
+#Constraint matrix
+ui<-cbind(c(-1,0,0,0,0),c(1,-1,0,0,0),c(0,1,-1,0,0),c(0,0,1,-1,0),c(0,0,0,1,-1),c(0,0,0,0,1),rep(0,5))
+
+#Constraint vector
+ci<-rep(0,5)
+#Starting values
+start<-c(0.1,0.2,0.3,0.4,0.5,0.6,0) 
+
+#Check that they satisfy the constraints (all positive)
+ui%*%start
+
+optimPPO1<-constrOptim(theta=start,f=LL3,ui=ui,ci=ci,data=melt_select_data,method="Nelder-Mead")
+#$value
+#[1] 1047.037
+#Stable value with other starting values and subsequentparameters used
+
+LL3(par=start,data=melt_select_data)
+#Log-likelihood
+logLik(fitPO)
+
+optimPPO1$value
+LL3(par=start,data=melt_select_data)
+#AIC=2p-2logLik
+2*length(fitPO@coefficients)+2*optimPPO1$value
+
+############################################################################################
+#############
+# 1
+#############
+#Models
+fitPO<-vglm(as.ordered(value) ~ 1, data= melt_select_data,family=cumulative(parallel=TRUE))
+#CROSSING!!!
+invlogit<-function(x){1/(1+exp(-x))}
+
+#Standardise covariates
+CNS.min <- 1
+CNS.max <- 3
+Category.min <- 1
+Category.max <- 2
+melt_select_data$CNS.sc <- (melt_select_data$CNS-CNS.min)/(CNS.max-CNS.min)
+melt_select_data$cCategory.sc <- (melt_select_data$Category-Category.min)/(Category.max-Category.min)
+#Reparameterisation
+#LL3 <- function(par,z.min,z.max,data)
+LL3 <- function(par,data)
+{
+  Y <- as.ordered(data[,4])
+  X <- cbind(data[,2],data[,3])
+  n <- length(Y)
+  C1 <- nlevels(as.ordered(Y))
+  
+  #Indicator matrix 
+  I1 <- matrix(rep(0,n*C1),n,C1)
+  I1[cbind(1:n,Y)] <- 1
+  
+  #Calculate cumulative probabilities P(Y<=1), P(Y <= 2), P(Y <= 3), P(Y <= 4), P(Y <= 5), P(Y <= 6)
+  lpar1 <- par[1]
+  lpar2 <- par[2]
+  lpar3 <- par[3]
+  lpar4 <- par[4]
+  lpar5 <- par[5]
+  lpar6 <- par[6]
+  logit1 <- lpar1 
+  logit2 <- lpar2 
+  logit3 <- lpar3 
+  logit4 <- lpar4 
+  logit5 <- lpar5 
+  logit6 <- lpar6 
+  Logit<-cbind(logit1,logit2,logit3,logit4,logit5,logit6)   
+  P<-invlogit(Logit)
+  
+  #Set Initial response probabilities to 0
+  Pi<-matrix(rep(0,n*C1),n,C1) 
+  
+  #j=1 and j=C always same expression
+  Pi[,1]<-P[,1]
+  Pi[,C1]<-1-P[,C1-1]
+  for(j in 2:(C1-1)){
+    Pi[,j]<-P[,j]-P[,j-1] 
+  }
+  
+  #Log-likelihood:element-wise multiplication
+  LL<--sum(I1*log(Pi))
+  return(LL)
+}
+#Constraint matrix
+ui<-cbind(c(-1,0,0,0,0),c(1,-1,0,0,0),c(0,1,-1,0,0),c(0,0,1,-1,0),c(0,0,0,1,-1),c(0,0,0,0,1))
+
+#Constraint vector
+ci<-rep(0,5)
+#Starting values
+start<-c(0.1,0.2,0.3,0.4,0.5,0.6) 
+
+#Check that they satisfy the constraints (all positive)
+ui%*%start
+
+optimPPO1<-constrOptim(theta=start,f=LL3,ui=ui,ci=ci,data=melt_select_data,method="Nelder-Mead")
+#$value
+#[1] 1192.756
+
+LL3(par=start,data=melt_select_data)
+#Log-likelihood
+logLik(fitPO)
+
+optimPPO1$value
+LL3(par=start,data=melt_select_data)
+#AIC=2p-2logLik
+2*length(fitPO@coefficients)+2*optimPPO1$value
+#############################################################################################
