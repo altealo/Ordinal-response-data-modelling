@@ -10,7 +10,7 @@
 ### determine the best PO/PPO fit for our data.
 ######################################################################################################
 #Connectedness to nature example
-#7 categories response 
+#Rating of experience: 7 categories response 
 ############################################################################################
 #List of models under comparison: (*:PPO)
 # 1+CNS*+Cat* (done)
@@ -27,7 +27,9 @@
 # 1+CNS*+Cat* 
 #################
 #Data available at: https://www.dropbox.com/s/t52nyhj68rryqqs/melteddata.csv?dl=0
+#Read data
 melt_select_data<-read.csv(file="melteddata.csv", header=TRUE, sep=",")
+#Define variable levels
 melt_select_data$id<-as.factor(melt_select_data$id)
 levels(melt_select_data$Category)<-c("Nature","Shopping")
 levels(melt_select_data$CNS)<-c("low","medium","high")
@@ -39,6 +41,8 @@ library(VGAM)
 #Models
 fitPO<-vglm(as.ordered(value) ~ CNS+Category, data= melt_select_data,family=cumulative(parallel=TRUE~CNS+Category))
 fitPPO<-vglm(as.ordered(value) ~ CNS+Category, data= melt_select_data,family=cumulative(parallel=FALSE~CNS+Category))
+
+#Function to determine cumulative probabilities
 invlogit<-function(x){1/(1+exp(-x))}
 
 #Standardise covariates
@@ -49,7 +53,7 @@ Category.max <- 2
 melt_select_data$CNS.sc <- (melt_select_data$CNS-CNS.min)/(CNS.max-CNS.min)
 melt_select_data$cCategory.sc <- (melt_select_data$Category-Category.min)/(Category.max-Category.min)
 
-# Log-likelihood
+# Calculate the model's Log-likelihood
 LL3 <- function(par,data)
 {
   Y <- as.ordered(data[,4])
@@ -105,7 +109,7 @@ LL3 <- function(par,data)
 }
 
 #Linear constraints
-#Constraint matrix 15x18
+#Constraint matrix size 20x18
 ui<-cbind(rep(c(-1,0,0,0,0),4),rep(c(1,-1,0,0,0),4),rep(c(0,1,-1,0,0),4),rep(c(0,0,1,-1,0),4),
 rep(c(0,0,0,1,-1),4),rep(c(0,0,0,0,1),4),
 c(0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,-1,0,0,0,0),
@@ -121,9 +125,9 @@ c(0,0,0,0,0,0,0,0,0,0,0,0,1,-1,0,0,0,1,-1,0),
 c(0,0,0,0,0,0,0,0,0,0,0,0,0,1,-1,0,0,0,1,-1),
 c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1))
 
-#Constraint vector 20
+#Constraint vector size 20
 ci<-rep(0,20) 
-#Starting values 18
+#Starting values size 18
 start<-c(0.1,0.2,0.3,0.4,0.5,0.6,0.3,0.8,0.9,1.0,1.1,1.2,0.3,1.4,1.5,1.6,1.7,1.8) 
 
 #Check that they satisfy the constraints (all positive)
@@ -134,8 +138,7 @@ ui%*%start
 #ui:constraint matrix (k x p), see below.
 #ci:constraint vector of length k
 optimPPO1<-constrOptim(theta=start,f=LL3,ui=ui,ci=ci,data=melt_select_data,method="Nelder-Mead")
-#$value
-#[1] 1310.839
+#Assess whether it is a global optimal value
 optimPPO2<-constrOptim(theta=optimPPO1$par,f=LL3,ui=ui,ci=ci,data=melt_select_data,method="Nelder-Mead")
 optimPPO3<-constrOptim(theta=optimPPO2$par,f=LL3,ui=ui,ci=ci,data=melt_select_data,method="Nelder-Mead")
 optimPPO4<-constrOptim(theta=optimPPO3$par,f=LL3,ui=ui,ci=ci,data=melt_select_data,method="Nelder-Mead")
