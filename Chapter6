@@ -4,6 +4,171 @@
 # January 2019
 ##################
 ######################################################################################################
+#########################################
+# Simulation study
+#########################################
+# Figure 6.16
+#########################################
+#PPOPO two covariates
+#4 categories response 
+#################
+library(VGAM)
+set.seed(1839)
+n <- 100
+x1 <-rnorm(n)
+x2<-rnorm(n,0.1,0.1)
+
+
+b01 <- -1.9
+b02 <- -1.8
+b03<--0.6
+#BETA_J
+b1 <- 0.1
+b2<-0.13
+b3<-0.16
+#Gamma_{i} (n)
+# g1<--2
+# g2<-2.08
+# g3<-2.495
+#g1<- -2.1
+g1<-0.1
+g2<-0.03
+g3<-0.26
+
+logitpp1<-b01 -b1*x1 -g1*x2
+logitpp2<-b02 -b2*x1 -g2*x2
+logitpp3<-b03 -b3*x1 -g3*x2
+
+inv_logit <- function(logit) exp(logit) / (1 + exp(logit))
+cump1<-inv_logit(logitpp1)
+cump2<-inv_logit(logitpp2)
+cump3<-inv_logit(logitpp3)
+
+prob_pp_1<-cump1
+prob_pp_2<-cump2-prob_pp_1
+prob_pp_3<-cump3-prob_pp_2
+prob_pp_4<-1-prob_pp_1-prob_pp_2-prob_pp_3
+
+table(c(prob_pp_1,prob_pp_2,prob_pp_3,prob_pp_4) > 0)
+
+y<-c(n)
+for (i in 1:n) {
+  y[i] <- sample(
+    x = c(1:4), 
+    size = 1, 
+    prob = c(prob_pp_1[i], prob_pp_2[i],prob_pp_3[i], prob_pp_4[i])
+  )
+}
+dat <- data.frame(x1,x2, y)
+#LINEAR CONSTRAINTS
+#FIX PPOM1,PPOM2,PPOM10,PPOM17
+fitPPOPO<-vglm(as.ordered(y) ~ x1+x2, data = dat,family=cumulative(parallel=TRUE~x1+x2))
+fitPPOPPO<-vglm(as.ordered(y) ~ x1+x2, data = dat,family=cumulative(parallel=FALSE~x1+x2))
+invlogit<-function(x){1/(1+exp(-x))}
+
+#Standardise covariates
+x1.min <- -3
+x1.max <- 3
+x2.min <- -3
+x2.max <- 3
+dat$x1.sc <- (dat$x1-x1.min)/(x1.max-x1.min)
+dat$x2.sc <- (dat$x2-x2.min)/(x2.max-x2.min)
+#Reparameterisation
+#LL3 <- function(par,z.min,z.max,data)
+LL3 <- function(par,data)
+{
+  Y <- as.ordered(data[,3])
+  X <- cbind(data[,4],data[,5])
+  n <- length(Y)
+  C1 <- nlevels(as.ordered(Y))
+  
+  #Indicator matrix 
+  I1 <- matrix(rep(0,n*C1),n,C1)
+  I1[cbind(1:n,Y)] <- 1
+  
+  #Calculate cumulative probabilities P(Y<=1), P(Y <= 2), P(Y <= 3)
+  lpar1 <- par[1]
+  lpar2 <- par[2]
+  lpar3 <- par[3]
+  gamma1 <- par[4]
+  gamma2 <- par[5]
+  gamma3 <- par[6]
+  zeta1 <- par[7]
+  zeta2 <- par[8]
+  zeta3 <- par[9]
+  logit1 <- lpar1 + gamma1*X[,1]+zeta1*X[,2]
+  logit2 <- lpar2 + gamma2*X[,1]+zeta2*X[,2]
+  logit3 <- lpar3 + gamma3*X[,1]+zeta3*X[,2]
+  Logit<-cbind(logit1,logit2,logit3)   
+  P<-invlogit(Logit)
+  
+  #Set Initial response probabilities to 0
+  Pi<-matrix(rep(0,n*C1),n,C1) 
+  
+  #j=1 and j=C always same expression
+  Pi[,1]<-P[,1]
+  Pi[,C1]<-1-P[,C1-1]
+  for(j in 2:(C1-1)){
+    Pi[,j]<-P[,j]-P[,j-1] 
+  }
+  
+  #Log-likelihood:element-wise multiplication
+  LL<--sum(I1*log(Pi))
+  return(LL)
+}
+#Constraint matrix
+#ui<-cbind(c(-1,0,-1,0),c(1,-1,1,-1),c(0,1,0,1),c(0,0,-1,0),c(0,0,1,-1),c(0,0,0,1),0,c(0,0,0,-1),c(0,0,0,1))
+#ui<-cbind(c(-1,0,-1,1),c(1,-1,1,-1),c(0,1,0,0),c(0,0,-1,-1),c(0,0,1,1),c(0,0,0,0),c(0,0,0,-1),c(0,0,0,1),c(0,0,0,0))
+
+ui<-cbind(rep(c(-1,0),4),rep(c(1,-1),4),rep(c(0,1),4),rep(c(0,0,-1,0),2),rep(c(0,0,1,-1),2),
+	c(0,0,0,1,0,0,0,1),c(0,0,0,0,-1,0,-1,0),c(0,0,0,0,1,-1,1,-1),c(0,0,0,0,0,1,0,1))
+
+#Constraint vector
+ci<-rep(0,4)
+#Starting values
+# start<-c(fitPPOPO@coefficients,0,0,0,0,0,0)
+start<-c(0.06542818,0.15733674,0.25843335,0.10246816,0.28520106,0.20,0.10,0.10,0.10)
+
+#Check that they satisfy the constraints (all positive)
+ui%*%start
+
+#Optimisation
+optimPPO1<-constrOptim(theta=start,f=LL3,ui=ui,ci=ci,data=dat,method="Nelder-Mead")
+optimPPO1$value
+#[1] 105.2631
+LL3(par=start,data=dat)
+
+pars <- optimPPO1$par
+
+pred.sbp1 <- pars[1]+pars[4]*dat$x1.sc+pars[7]*dat$x2.sc
+pred.sbp2 <- pars[2]+pars[5]*dat$x1.sc+pars[8]*dat$x2.sc
+pred.sbp3 <- pars[3]+pars[6]*dat$x1.sc+pars[9]*dat$x2.sc
+
+summary(dat$x1.sc)
+summary(dat$x2.sc)
+
+logit2prob <- function(logit){
+  odds <- exp(logit)
+  prob <- odds / (1 + odds)
+  return(prob)
+}
+
+par(mfrow=c(1,2))
+plot(sort(logit2prob(pred.sbp1),decreasing=FALSE)~sort(x1.sc,decreasing=TRUE),ylab=expression("PPOM-Repar:"~P(Y<=j)),ylim=c(0,1),cex.lab=2,xlab=expression(x[1]),cex.axis=2,pch=19,data=dat,type="l",lwd=5)
+lines(sort(logit2prob(pred.sbp2),decreasing=FALSE)~sort(x1.sc,decreasing=TRUE),col="#E69F00",data=dat,pch=19,lwd=5)
+lines(sort(logit2prob(pred.sbp3),decreasing=FALSE)~sort(x1.sc,decreasing=TRUE),col="#56B4E9",data=dat,pch=19,lwd=5)
+abline(v=0.1527,lty=2,lwd=1)
+abline(v=0.8573,lty=2,lwd=1)
+legend(150,1.02, legend=c("P(Y<=3)","P(Y<=2)", "P(Y<=1)"),col=c("#56B4E9","#E69F00", "black"), lty=1, lwd=4, cex=1.2)
+
+plot(sort(logit2prob(pred.sbp1),decreasing=FALSE)~sort(x2.sc,decreasing=TRUE),ylab=expression("PPOM-Repar:"~P(Y<=j)),ylim=c(0,1),cex.lab=2,xlab=expression(x[2]),cex.axis=2,pch=19,data=dat,type="l",lwd=5)
+lines(sort(logit2prob(pred.sbp2),decreasing=FALSE)~sort(x2.sc,decreasing=TRUE),col="#E69F00",data=dat,pch=19,lwd=5)
+lines(sort(logit2prob(pred.sbp3),decreasing=FALSE)~sort(x2.sc,decreasing=TRUE),col="#56B4E9",data=dat,pch=19,lwd=5)
+abline(v=0.4732,lty=2,lwd=1)
+abline(v=0.5584,lty=2,lwd=1)
+legend(150,1.02, legend=c("P(Y<=3)","P(Y<=2)", "P(Y<=1)"),col=c("#56B4E9","#E69F00", "black"), lty=1, lwd=4, cex=1.2)
+
+######################################################################################################
 # Model selection using constrained log-likelihood approach
 ######################################################################################################
 ### The goal of this analysis is to: 
