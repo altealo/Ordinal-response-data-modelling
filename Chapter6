@@ -355,6 +355,365 @@ abline(v=0.4732,lty=2,lwd=1)
 abline(v=0.5584,lty=2,lwd=1)
 legend(150,1.02, legend=c("P(Y<=3)","P(Y<=2)", "P(Y<=1)"),col=c("#56B4E9","#E69F00", "black"), lty=1, lwd=4, cex=1.2)
 
+#########################################
+# Figure 6.18
+#########################################
+data_survey_ev<-read.csv("sevat_v2.csv",header=TRUE,na.strings=".")
+summary(data_survey_ev)
+#libraries
+library(VGAM)
+library(ordinalNet)
+
+#Without missing/refused
+data_survey_ev_womed<-data_survey_ev[which(data_survey_ev$edqual>-1),]
+library(plyr)
+#Change order
+data_survey_ev_womed$edqual <- mapvalues(data_survey_ev_womed$edqual, from = c("2","3","4","5","6"), to = c("5","4","3","2","1"))
+attach(data_survey_ev_womed)
+
+Model_ed_age<- vglm(edqual~exact_ag,data=data_survey_ev_womed,family = cumulative(parallel=FALSE~exact_ag))
+Model_ed_age_POM<- vglm(edqual~exact_ag,data=data_survey_ev_womed,family = cumulative(parallel=TRUE))
+
+
+invlogit<-function(x){
+  1/(1+exp(-x))}	
+
+LL2 <- function(data,par,lambda)
+{
+  Y <- data[,6]
+  X <- data[,2]
+  n <- length(Y)
+  C1 <- nlevels(as.factor(Y))
+  
+  #Indicator matrix 3004*5
+  I1 <- matrix(rep(0,n*C1),n,C1)
+  # #length(cbind(1:n,Y)) [1] 6008
+  # I1[cbind(1:n,Y)] <- 1
+  # 
+  #Need as.numeric(Y), otherwise this indicator becomes all 0s
+  for(j in 1:C1){
+    for(i in 1:n){
+      if (as.numeric(Y[i])==j)
+      {
+        I1[i,j] <- 1
+      }
+      #else
+      #{I1[i,j]<-0
+      #}
+    }
+  }
+  
+  #Calculate cumulative probabilities P(Y<=1), P(Y <= 2), P(Y <= 3)
+  #For identifiability set par[6]=0
+  logit1 <-par[1] + (par[5])*(X-min(X))/(max(X)-min(X)) #+ par[5]*as.numeric(unlist(X))
+  logit2 <- par[2]+ (par[5]+par[7])*(X-min(X))/(max(X)-min(X))#+ par[5]*as.numeric(unlist(X))
+  logit3 <- par[3] + (par[5]+par[8])*(X-min(X))/(max(X)-min(X)) #+ par[5]*as.numeric(unlist(X))
+  logit4 <- par[4] + (par[5]+par[9])*(X-min(X))/(max(X)-min(X)) #+ par[5]*as.numeric(unlist(X))
+  
+  Logit<-cbind(logit1,logit2,logit3,logit4)
+  P<-invlogit(Logit)
+  
+  #Set Initial response probabilities to 0
+  Pi<-matrix(rep(0,n*C1),n,C1) #3004*5
+  
+  #j=1 and j=C always same expression
+  Pi[,1]<-P[,1]
+  Pi[,C1]<-1-P[,C1-1]
+  for(j in 2:(C1-1)){
+    Pi[,j]<-P[,j]-P[,j-1]
+  }
+  
+  #Log-likelihood:element-wise multiplication
+  LL <- -sum(I1*log(Pi))+lambda*sum(abs(par[6]),abs(par[7]),abs(par[8]),abs(par[9]))
+  return(LL)
+}
+start3<-c(Model_ed_age@coefficients,0)
+optimPPO = optim(fn=LL2,par=start3,lambda=0.5,method = 'Nelder-Mead',data=data_survey_ev_womed)
+start4<-optimPPO$par
+optimPPO = optim(fn=LL2,par=start4,lambda=1,method = 'BFGS',data=data_survey_ev_womed)
+
+logit2prob <- function(logit){
+  odds <- exp(logit)
+  prob <- odds / (1 + odds)
+  return(prob)
+}
+
+new.age <- seq(0,100,length=1000)
+pars <- optimPPO$par
+pred.age1 <- pars[1] + (pars[5]+pars[6])*(new.age-min(new.age))/(max(new.age)-min(new.age))
+pred.age2 <- pars[2] + (pars[5]+pars[7])*(new.age-min(new.age))/(max(new.age)-min(new.age))
+pred.age3 <- pars[3] + (pars[5]+pars[8])*(new.age-min(new.age))/(max(new.age)-min(new.age))
+pred.age4 <- pars[4] + (pars[5]+pars[9])*(new.age-min(new.age))/(max(new.age)-min(new.age))
+
+plot(logit2prob(pred.age1)~new.age,ylab="PPOM-Lasso: P(Y<=j)",ylim=c(0,1),cex.lab=2,xlab="Age",cex.axis=2,pch=19,data=data_survey_ev_womed)
+points(logit2prob(pred.age2)~new.age,col="#E69F00",data=data_survey_ev_womed,pch=19)
+points(logit2prob(pred.age3)~new.age,col="#56B4E9",data=data_survey_ev_womed,pch=19)
+points(logit2prob(pred.age4)~new.age,col="#009E73",data=data_survey_ev_womed,pch=19)
+
+abline(v=c(0,96), col=c("black", "black"), lty=c(2,2), lwd=c(1, 1))
+
+legend(70,0.2, legend=c("P(Y<=4)","P(Y<=3)","P(Y<=2)", "P(Y<=1)"),col=c("#009E73","#56B4E9","#E69F00", "black"), lty=1, lwd=4, cex=0.8)
+
+#########################################
+# Figure 6.19
+#########################################
+data_survey_ev<-read.csv("sevat_v2.csv",header=TRUE,na.strings=".")
+summary(data_survey_ev)
+#Load libraries
+library(VGAM)
+library(ordinalNet)
+#Without missing/refused
+data_survey_ev_womed<-data_survey_ev[which(data_survey_ev$edqual>-1),]
+library(plyr)
+#Change order
+data_survey_ev_womed$edqual <- mapvalues(data_survey_ev_womed$edqual, from = c("2","3","4","5","6"), to = c("5","4","3","2","1"))
+attach(data_survey_ev_womed)
+
+Model_ed_age<- vglm(edqual~exact_ag,data=data_survey_ev_womed,family = cumulative(parallel=FALSE~exact_ag))
+Model_ed_age_POM<- vglm(edqual~exact_ag,data=data_survey_ev_womed,family = cumulative(parallel=TRUE))
+
+LL3 <- function(par,z.min,z.max,data)
+{
+  Y <- as.factor(data[, 6])
+  X <- as.numeric(data[, 2])
+  n <- length(Y)
+  C1 <- nlevels(Y)
+  
+  # Rescale X
+  X.original <- X
+  X <- (X-z.min)/(z.max-z.min)
+  print(range(X))
+  #Indicator matrix 40x4
+  I1 <- matrix(rep(0,n*C1),n,C1)
+  I1[cbind(1:n,Y)] <- 1
+  
+  #Calculate cumulative probabilities P(Y<=1), P(Y <= 2), P(Y <= 3)
+  #Need to express it in form of matrices so it applies to any model fit
+  #Express it as matrices along the lines of logit<-sum(alpha,X[i,] * beta)
+  #Organise indices!
+  #X[1]: SES, PPOM
+  #X[2]: Life, POM
+  lpar1 <- par[1]
+  lpar2 <- lpar1+exp(par[2])
+  lpar3 <- lpar2+exp(par[3])
+  lpar4 <- lpar3+exp(par[4])
+  gamma1 <- par[5]
+  gamma2 <- (lpar1-lpar2)+gamma1+exp(par[6])
+  gamma3 <- (lpar2-lpar3)+gamma2+exp(par[7])
+  gamma4 <- (lpar3-lpar4)+gamma3+exp(par[8])
+  logit1 <- lpar1 + gamma1*(X-min(X))/(max(X)-min(X))
+  logit2 <- lpar2 + gamma2*(X-min(X))/(max(X)-min(X))
+  logit3 <- lpar3 + gamma3*(X-min(X))/(max(X)-min(X))
+  logit4 <- lpar4 + gamma4*(X-min(X))/(max(X)-min(X))
+  Logit<-cbind(logit1,logit2,logit3,logit4)
+  P <- invlogit(Logit)
+
+  #Set Initial response probabilities to 0
+  Pi<-matrix(rep(0,n*C1),n,C1) #40X4
+  
+  #j=1 and j=C always same expression
+  Pi[,1]<-P[,1]
+  Pi[,C1]<-1-P[,C1-1]
+  for(j in 2:(C1-1)){
+    Pi[,j]<-P[,j]-P[,j-1]
+  }
+  
+  #Log-likelihood:element-wise multiplication
+  LL <- -sum(I1*log(Pi))
+  return(LL)
+}
+start4<-c(-2.1761230,-0.6491777,0.3205831,0.8996400,2.0948066,-2.9025352,-0.5885752,-1.2573971,-1.5465070 )
+optimPPO <- optim(fn=LL3,par=start4,method = 'BFGS',data=data_survey_ev_womed,
+                  z.min=-5,z.max=105)
+new.age <- seq(0,100,length=1000)
+z.min <- -5
+z.max <- 105
+new.age.sc <- (new.age-z.min)/(z.max-z.min)
+pars <- optimPPO$par
+lpar1 <- pars[1]
+lpar2 <- lpar1+exp(pars[2])
+lpar3 <- lpar2+exp(pars[3])
+lpar4 <- lpar3+exp(pars[4])
+gamma1 <- pars[5]
+gamma2 <- (lpar1-lpar2)+gamma1+exp(pars[6])
+gamma3 <- (lpar2-lpar3)+gamma2+exp(pars[7])
+gamma4 <- (lpar3-lpar4)+gamma3+exp(pars[8])
+pred.age1 <- lpar1 + gamma1*(new.age.sc-min(new.age.sc))/(max(new.age.sc)-min(new.age.sc))
+pred.age2 <- lpar2 + gamma2*(new.age.sc-min(new.age.sc))/(max(new.age.sc)-min(new.age.sc))
+pred.age3 <- lpar3 + gamma3*(new.age.sc-min(new.age.sc))/(max(new.age.sc)-min(new.age.sc))
+pred.age4 <- lpar4 + gamma4*(new.age.sc-min(new.age.sc))/(max(new.age.sc)-min(new.age.sc))
+plot(logit2prob(pred.age1)~new.age,ylab="PPOM -Repar: P(Y<=j)",ylim=c(0,1),cex.lab=2,xlab="Age",cex.axis=2,pch=19)
+points(logit2prob(pred.age2)~new.age,col="#E69F00",data=data_survey_ev_womed,pch=19)
+points(logit2prob(pred.age3)~new.age,col="#56B4E9",data=data_survey_ev_womed,pch=19)
+points(logit2prob(pred.age4)~new.age,col="#009E73",data=data_survey_ev_womed,pch=19)
+
+legend(70,0.2, legend=c("P(Y<=4)","P(Y<=3)","P(Y<=2)", "P(Y<=1)"),col=c("#009E73","#56B4E9","#E69F00", "black"), lty=1, lwd=4, cex=0.8)
+
+#########################################
+# Figure 6.20
+#########################################
+#Load library containing data set
+library(ordinalgmifs)
+data(eyedisease)
+summary(eyedisease)
+#Load ibrary to run the models
+library(VGAM)
+#PPOM
+Model_eye_lerl<- vglm(lerl~sbp+lre,data=eyedisease,family = cumulative(parallel=FALSE~sbp))
+Model_eye_lerlPOM<- vglm(lerl~sbp+lre,data=eyedisease,family = cumulative(parallel=TRUE))
+
+#Optimisation of log-likelihood with Lasso
+invlogit<-function(x){
+1/(1+exp(-x))}	
+
+#Log-likelihood function
+LL2 <- function(data,par,lambda)
+{
+  Y <- data[, 18]
+  X <- cbind(data[,10],data[,4])
+  n <- length(Y)
+  C1 <- nlevels(as.factor(Y))
+  
+  #Indicator matrix 40x4
+  I1 <- matrix(rep(0,n*C1),n,C1)
+  I1[cbind(1:n,Y)] <- 1
+  
+  #Calculate cumulative probabilities P(Y<=1), P(Y <= 2), P(Y <= 3)
+  #For identifiability set par[6]=0
+  logit1 <-par[1] + (par[4])*(X[,1]-min(X))/(max(X)-min(X)) + par[5]*as.numeric(unlist(X[,2]))
+  logit2 <- par[2]+ (par[4]+par[6])*(X[,1]-min(X))/(max(X)-min(X))+ par[5]*as.numeric(unlist(X[,2]))
+  logit3 <- par[3] + (par[4]+par[7])*(X[,1]-min(X))/(max(X)-min(X)) + par[5]*as.numeric(unlist(X[,2]))
+  Logit<-cbind(logit1,logit2,logit3)
+  P<-invlogit(Logit)
+ 
+   #Set Initial response probabilities to 0
+  Pi<-matrix(rep(0,n*C1),n,C1) #40X4
+  
+  #j=1 and j=C always same expression
+  Pi[,1]<-P[,1]
+  Pi[,C1]<-1-P[,C1-1]
+  for(j in 2:(C1-1)){
+    Pi[,j]<-P[,j]-P[,j-1]
+  }
+  
+  #Log-likelihood:element-wise multiplication
+  LL <- -sum(I1*log(Pi))+lambda*sum(abs(par[6]),abs(par[7]))
+  return(LL)
+}
+
+
+library(glmnet)
+x<-cbind(eyedisease$sbp,eyedisease$lre)
+lambdas <- 10^seq(3, -2, by = -.1)
+y<-eyedisease$lerl
+cv_fit <- cv.glmnet(x, as.numeric(y), alpha = 1, lambda = lambdas)
+plot(cv_fit)
+opt_lambda <- cv_fit$lambda.min
+opt_lambda
+#[1] 0.01
+
+start2<-c(Model_eye_lerlPOM@coefficients,0,0)
+optim1<-optim(fn=LL2,par=start2,lambda=opt_lambda,method = 'Nelder-Mead',data=eyedisease,control=list(maxit=10000))
+#Loop
+#Stable optim value
+optim23<-optim(fn=LL2,par=optim22$par,lambda=opt_lambda,method = 'Nelder-Mead',data=eyedisease,control=list(maxit=10000))#
+#$value
+#[1] 829.0618
+
+new.sbp <- seq(70,220,length=720)
+z.min <- -70
+z.max <- 220
+
+pars <- optim23$par
+
+pred.sbp1 <-pars[1] + (pars[4])*(new.sbp-min(new.sbp))/(max(new.sbp)-min(new.sbp)) + pars[5]*eyedisease$lre
+pred.sbp2<- pars[2]+ (pars[4]+pars[6])*(new.sbp-min(new.sbp))/(max(new.sbp)-min(new.sbp))+ pars[5]*eyedisease$lre
+pred.sbp3 <- pars[3] + (pars[4]+pars[7])*(new.sbp-min(new.sbp))/(max(new.sbp)-min(new.sbp)) + pars[5]*eyedisease$lre
+
+logit2prob <- function(logit){
+  odds <- exp(logit)
+  prob <- odds / (1 + odds)
+  return(prob)
+}
+
+par(mfrow=c(2,2))
+plot(sort(logit2prob(pred.sbp1),decreasing=FALSE)~sort(new.sbp,decreasing=TRUE),ylab=expression(PPOM-Lasso: P(Y<=j)),ylim=c(0,1),cex.lab=1.2,xlab="Systolic blood pressure",cex.axis=1.2,pch=19,type="l",lwd=5)
+lines(sort(logit2prob(pred.sbp2),decreasing=FALSE)~sort(new.sbp,decreasing=TRUE),col="#E69F00",data=eyedisease,pch=19,lwd=5)
+lines(sort(logit2prob(pred.sbp3),decreasing=FALSE)~sort(new.sbp,decreasing=TRUE),col="#56B4E9",data=eyedisease,pch=19,lwd=5)
+#fixes issue long ablines
+par(xpd = FALSE) 
+abline(v=78,lty=2,lwd=1)
+abline(v=218,lty=2,lwd=1)
+legend(80,0.35, legend=c(expression(P(Y<=3)~" "),expression(P(Y<=2)), expression(P(Y<=1))),col=c("#56B4E9","#E69F00", "black"), lty=1, lwd=2, cex=1.0)
+
+#Zoomed plot
+length(pred.sbp2)
+length(pred.sbp3)
+#[1] 720
+length(new.sbp)
+new.sbp[650]
+
+plot(sort(logit2prob(pred.sbp2),decreasing=FALSE)~sort(new.sbp,decreasing=TRUE),col="#E69F00",data=eyedisease,ylab=expression(PPOM-Lasso:P(Y<=j)),ylim=c(0.00,0.30),xlim=c(205,220),cex.lab=1.2,xlab="Systolic blood pressure",cex.axis=1.2,pch=19,type="l",lwd=5)
+lines(sort(logit2prob(pred.sbp3),decreasing=FALSE)~sort(new.sbp,decreasing=TRUE),col="#56B4E9",data=eyedisease,pch=19,lwd=5)
+abline(v=78,lty=2,lwd=1)
+abline(v=218,lty=2,lwd=1)
+legend(206,0.105, legend=c(expression(P(Y<=3)~" "),expression(P(Y<=2)), expression(P(Y<=1))),col=c("#56B4E9","#E69F00", "black"), lty=1, lwd=2, cex=1.0)
+
+
+plot(sort(pred.sbp1,decreasing=FALSE)~sort(new.sbp,decreasing=TRUE),ylab=expression(PPOM-Lasso: "logit"~(P(Y<=j))),ylim=c(-11,11),cex.lab=1.2,xlab="Systolic blood pressure",cex.axis=1.2,pch=19,type="l",lwd=5)
+lines(sort(pred.sbp2,decreasing=FALSE)~sort(new.sbp,decreasing=TRUE),col="#E69F00",data=eyedisease,pch=19,lwd=5)
+lines(sort(pred.sbp3,decreasing=FALSE)~sort(new.sbp,decreasing=TRUE),col="#56B4E9",data=eyedisease,pch=19,lwd=5)
+abline(v=78,lty=2,lwd=1)
+abline(v=218,lty=2,lwd=1)
+legend(80,-3.2, legend=c(expression("logit"~(P(Y<=3))~" "),expression("logit"~(P(Y<=2))), expression("logit"~(P(Y<=1)))),col=c("#56B4E9","#E69F00", "black"), lty=1, lwd=2, cex=1.0)
+
+#Zoomed plot
+length(pred.sbp2)
+length(pred.sbp3)
+#[1] 720
+length(new.sbp)
+new.sbp[650]
+
+plot(sort(pred.sbp2,decreasing=FALSE)~sort(new.sbp,decreasing=TRUE),col="#E69F00",data=eyedisease,ylab=expression(PPOM-Lasso: "logit"~(P(Y<=j))),ylim=c(-2.5,0),xlim=c(180,220),cex.lab=1.2,xlab="Systolic blood pressure",cex.axis=1.2,pch=19,type="l",lwd=5)
+lines(sort(pred.sbp3,decreasing=FALSE)~sort(new.sbp,decreasing=TRUE),col="#56B4E9",data=eyedisease,pch=19,lwd=5)
+abline(v=78,lty=2,lwd=1)
+abline(v=218,lty=2,lwd=1)
+legend(179.7,-1.60, legend=c(expression("logit"~(P(Y<=3))~" "),expression("logit"~(P(Y<=2))), expression("logit"~(P(Y<=1)))),col=c("#56B4E9","#E69F00", "black"), lty=1, lwd=2, cex=1.0)
+
+#########################################
+# Figure 6.21
+#########################################
+
+#########################################
+# Figure 6.22
+#########################################
+#Load library containing data set
+library(ordinalgmifs)
+#Call data
+data(eyedisease)
+#Summary of the data
+summary(eyedisease)
+#Load ibrary to run the models
+library(VGAM)
+#Function to convert logits to probabilities
+logit2prob <- function(logit){
+  odds <- exp(logit)
+  prob <- odds / (1 + odds)
+  return(prob)
+}
+par(mfrow=c(1,2))
+Model_eye_lerl_PPOM_testing_LME_SBP<-vglm(lerl~lme+sbp,data=eyedisease,family = cumulative(parallel=FALSE~lme+sbp))
+#Plot PPOM cumulative probabilities
+plot(logit2prob(predict(Model_eye_lerl_PPOM_testing_LME_SBP)[,1])~eyedisease$sbp,ylab=expression("PPOM:"~P(Y<=j)),ylim=c(0,1),xlim=c(70,260),cex.lab=1.2,xlab="Systolic blood pressure",cex.axis=1.2,pch=19)
+points(logit2prob(predict(Model_eye_lerl_PPOM_testing_LME_SBP)[,2])~eyedisease$sbp,col="#E69F00",pch=19)
+points(logit2prob(predict(Model_eye_lerl_PPOM_testing_LME_SBP)[,3])~eyedisease$sbp,col="#56B4E9",pch=19)
+legend(170,1.0, legend=c(expression(P(Y<=3)~" " ),expression(P(Y<=2) ), expression(P(Y<=1) )),col=c("#56B4E9","#E69F00", "black"), lty=1, lwd=2, cex=1)
+#Plot PPOM logit cumulative probabilities
+plot(predict(Model_eye_lerl_PPOM_testing_LME_SBP)[,1]~eyedisease$sbp,ylab=expression("PPOM:"~logit~" "(P(Y<=j))),cex.lab=1.2,xlab="Systolic blood pressure",cex.axis=1.2,pch=19,ylim=c(-6,6),xlim=c(70,260))
+points(predict(Model_eye_lerl_PPOM_testing_LME_SBP)[,2]~eyedisease$sbp,col="#E69F00",pch=19)
+points(predict(Model_eye_lerl_PPOM_testing_LME_SBP)[,3]~eyedisease$sbp,col="#56B4E9",pch=19)
+legend(150,6.0, legend=c(expression(logit~" "(P(Y<=3))),expression(logit~" "(P(Y<=2))), expression(logit~" "(P(Y<=1))~" ")),col=c("#56B4E9","#E69F00", "black"), lty=1, lwd=2, cex=1)
+
 ######################################################################################################
 # Model selection using constrained log-likelihood approach
 ######################################################################################################
@@ -1216,141 +1575,4 @@ LL3(par=start,data=melt_select_data)
 #AIC=2p-2logLik
 2*length(fitPO@coefficients)+2*optimPPO1$value
 #############################################################################################
-#########################################
-# Figure 6.19
-#########################################
 
-#########################################
-# Figure 6.20
-#########################################
-install.packages("ordinalgmifs")
-library(ordinalgmifs)
-library(VGAM)
-data(eyedisease)
-summary(eyedisease)
-
-#PPOM
-Model_eye_lerl<- vglm(lerl~sbp+lre,data=eyedisease,family = cumulative(parallel=FALSE~sbp))
-Model_eye_lerlPOM<- vglm(lerl~sbp+lre,data=eyedisease,family = cumulative(parallel=TRUE))
-
-#Optimisation of log-likelihood with Lasso
-invlogit<-function(x){
-1/(1+exp(-x))}	
-
-#Log-likelihood function
-LL2 <- function(data,par,lambda)
-{
-  Y <- data[, 18]
-  X <- cbind(data[,10],data[,4])
-  n <- length(Y)
-  C1 <- nlevels(as.factor(Y))
-  
-  #Indicator matrix 40x4
-  I1 <- matrix(rep(0,n*C1),n,C1)
-  I1[cbind(1:n,Y)] <- 1
-  
-  #Calculate cumulative probabilities P(Y<=1), P(Y <= 2), P(Y <= 3)
-  #For identifiability set par[6]=0
-  logit1 <-par[1] + (par[4])*(X[,1]-min(X))/(max(X)-min(X)) + par[5]*as.numeric(unlist(X[,2]))
-  logit2 <- par[2]+ (par[4]+par[6])*(X[,1]-min(X))/(max(X)-min(X))+ par[5]*as.numeric(unlist(X[,2]))
-  logit3 <- par[3] + (par[4]+par[7])*(X[,1]-min(X))/(max(X)-min(X)) + par[5]*as.numeric(unlist(X[,2]))
-  Logit<-cbind(logit1,logit2,logit3)
-  P<-invlogit(Logit)
- 
-   #Set Initial response probabilities to 0
-  Pi<-matrix(rep(0,n*C1),n,C1) #40X4
-  
-  #j=1 and j=C always same expression
-  Pi[,1]<-P[,1]
-  Pi[,C1]<-1-P[,C1-1]
-  for(j in 2:(C1-1)){
-    Pi[,j]<-P[,j]-P[,j-1]
-  }
-  
-  #Log-likelihood:element-wise multiplication
-  LL <- -sum(I1*log(Pi))+lambda*sum(abs(par[6]),abs(par[7]))
-  return(LL)
-}
-
-
-library(glmnet)
-x<-cbind(eyedisease$sbp,eyedisease$lre)
-lambdas <- 10^seq(3, -2, by = -.1)
-y<-eyedisease$lerl
-cv_fit <- cv.glmnet(x, as.numeric(y), alpha = 1, lambda = lambdas)
-plot(cv_fit)
-opt_lambda <- cv_fit$lambda.min
-opt_lambda
-#[1] 0.01
-
-start2<-c(Model_eye_lerlPOM@coefficients,0,0)
-optim1<-optim(fn=LL2,par=start2,lambda=opt_lambda,method = 'Nelder-Mead',data=eyedisease,control=list(maxit=10000))
-#Loop
-#Stable optim value
-optim23<-optim(fn=LL2,par=optim22$par,lambda=opt_lambda,method = 'Nelder-Mead',data=eyedisease,control=list(maxit=10000))#
-#$value
-#[1] 829.0618
-
-new.sbp <- seq(70,220,length=720)
-z.min <- -70
-z.max <- 220
-
-pars <- optim23$par
-
-pred.sbp1 <-pars[1] + (pars[4])*(new.sbp-min(new.sbp))/(max(new.sbp)-min(new.sbp)) + pars[5]*eyedisease$lre
-pred.sbp2<- pars[2]+ (pars[4]+pars[6])*(new.sbp-min(new.sbp))/(max(new.sbp)-min(new.sbp))+ pars[5]*eyedisease$lre
-pred.sbp3 <- pars[3] + (pars[4]+pars[7])*(new.sbp-min(new.sbp))/(max(new.sbp)-min(new.sbp)) + pars[5]*eyedisease$lre
-
-logit2prob <- function(logit){
-  odds <- exp(logit)
-  prob <- odds / (1 + odds)
-  return(prob)
-}
-
-par(mfrow=c(2,2))
-plot(sort(logit2prob(pred.sbp1),decreasing=FALSE)~sort(new.sbp,decreasing=TRUE),ylab=expression(PPOM-Lasso: P(Y<=j)),ylim=c(0,1),cex.lab=1.2,xlab="Systolic blood pressure",cex.axis=1.2,pch=19,type="l",lwd=5)
-lines(sort(logit2prob(pred.sbp2),decreasing=FALSE)~sort(new.sbp,decreasing=TRUE),col="#E69F00",data=eyedisease,pch=19,lwd=5)
-lines(sort(logit2prob(pred.sbp3),decreasing=FALSE)~sort(new.sbp,decreasing=TRUE),col="#56B4E9",data=eyedisease,pch=19,lwd=5)
-#fixes issue long ablines
-par(xpd = FALSE) 
-abline(v=78,lty=2,lwd=1)
-abline(v=218,lty=2,lwd=1)
-legend(80,0.35, legend=c(expression(P(Y<=3)~" "),expression(P(Y<=2)), expression(P(Y<=1))),col=c("#56B4E9","#E69F00", "black"), lty=1, lwd=2, cex=1.0)
-
-#Zoomed plot
-length(pred.sbp2)
-length(pred.sbp3)
-#[1] 720
-length(new.sbp)
-new.sbp[650]
-
-plot(sort(logit2prob(pred.sbp2),decreasing=FALSE)~sort(new.sbp,decreasing=TRUE),col="#E69F00",data=eyedisease,ylab=expression(PPOM-Lasso:P(Y<=j)),ylim=c(0.00,0.30),xlim=c(205,220),cex.lab=1.2,xlab="Systolic blood pressure",cex.axis=1.2,pch=19,type="l",lwd=5)
-lines(sort(logit2prob(pred.sbp3),decreasing=FALSE)~sort(new.sbp,decreasing=TRUE),col="#56B4E9",data=eyedisease,pch=19,lwd=5)
-abline(v=78,lty=2,lwd=1)
-abline(v=218,lty=2,lwd=1)
-legend(206,0.105, legend=c(expression(P(Y<=3)~" "),expression(P(Y<=2)), expression(P(Y<=1))),col=c("#56B4E9","#E69F00", "black"), lty=1, lwd=2, cex=1.0)
-
-
-plot(sort(pred.sbp1,decreasing=FALSE)~sort(new.sbp,decreasing=TRUE),ylab=expression(PPOM-Lasso: "logit"~(P(Y<=j))),ylim=c(-11,11),cex.lab=1.2,xlab="Systolic blood pressure",cex.axis=1.2,pch=19,type="l",lwd=5)
-lines(sort(pred.sbp2,decreasing=FALSE)~sort(new.sbp,decreasing=TRUE),col="#E69F00",data=eyedisease,pch=19,lwd=5)
-lines(sort(pred.sbp3,decreasing=FALSE)~sort(new.sbp,decreasing=TRUE),col="#56B4E9",data=eyedisease,pch=19,lwd=5)
-abline(v=78,lty=2,lwd=1)
-abline(v=218,lty=2,lwd=1)
-legend(80,-3.2, legend=c(expression("logit"~(P(Y<=3))~" "),expression("logit"~(P(Y<=2))), expression("logit"~(P(Y<=1)))),col=c("#56B4E9","#E69F00", "black"), lty=1, lwd=2, cex=1.0)
-
-#Zoomed plot
-length(pred.sbp2)
-length(pred.sbp3)
-#[1] 720
-length(new.sbp)
-new.sbp[650]
-
-plot(sort(pred.sbp2,decreasing=FALSE)~sort(new.sbp,decreasing=TRUE),col="#E69F00",data=eyedisease,ylab=expression(PPOM-Lasso: "logit"~(P(Y<=j))),ylim=c(-2.5,0),xlim=c(180,220),cex.lab=1.2,xlab="Systolic blood pressure",cex.axis=1.2,pch=19,type="l",lwd=5)
-lines(sort(pred.sbp3,decreasing=FALSE)~sort(new.sbp,decreasing=TRUE),col="#56B4E9",data=eyedisease,pch=19,lwd=5)
-abline(v=78,lty=2,lwd=1)
-abline(v=218,lty=2,lwd=1)
-legend(179.7,-1.60, legend=c(expression("logit"~(P(Y<=3))~" "),expression("logit"~(P(Y<=2))), expression("logit"~(P(Y<=1)))),col=c("#56B4E9","#E69F00", "black"), lty=1, lwd=2, cex=1.0)
-
-#########################################
-# Figure 6.21
-#########################################
