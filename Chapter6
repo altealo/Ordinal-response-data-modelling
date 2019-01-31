@@ -153,7 +153,44 @@ abline(v=0.6,col="blue")
 abline(v=1.8,col="red")
 
 #########################################
-# Figure 6.4
+# Figure 6.4 - code adapted from #https://stackoverflow.com/questions/30960620/how-to-plot-a-plane-from-an-equation-in-r
+#########################################
+##############
+#Load library
+library(rgl)
+# Create some dummy data
+dat <- replicate(2, 1:3)
+
+# Initialize the scene, no data plotted
+plot3d(dat, type = 'n', xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-3, 3), xlab = '', ylab = '', zlab = '') 
+axes3d(labels=F,tick=F,box=F,marklen = 0, marklen.rel = FALSE,xlen = 0, ylen = 0, zlen = 0)
+
+# Add planes
+planes3d(0, 0, 6, 0, col = 'blue', alpha = 0.6)
+planes3d(0, 0, 6, 6, col = 'lightyellow', alpha = 0.6)
+
+#Add text
+text3d(c(1,1,2),texts=c('za      ', '', ''))
+text3d(c(1,1,-2),texts=c('a2+g2a    ', '', ''),col="darkgrey")
+text3d(c(1,1,0),texts=c('a1+g1a          ','',''),col="blue")
+
+text3d(c(1,0,1),texts=c('a2+g2a+g2b              ','',''),col="darkgrey")
+text3d(c(1,-1,1),texts=c('a1+g1a+g1b   ','',''),col="blue")
+
+#text3d(c(-1,-1,1),texts=c('A+2+3+1  ','',''))
+mtext3d("a2",edge="z-+",line=3,las=2,cex=1.1,col="darkgrey")
+#text3d(c(-1,1,0),texts=c('    a2  ','',''),col="blue")
+text3d(c(0,1,-2),texts=c('         a1  ','',''),col="blue")
+
+text3d(c(-1,-1,-2),texts=c('     a2+g2b','',''),col="darkgrey")
+text3d(c(-1,-1,0),texts=c('            a1+g1b','',''),col="blue")
+text3d(c(0,-1,0),texts=c('                             zb ','',''))
+
+#Save plot as you have it displayed
+rgl.postscript("planes3.pdf","pdf")
+
+#########################################
+# Figure 6.5
 #########################################
 
 #########################################
@@ -1179,3 +1216,180 @@ LL3(par=start,data=melt_select_data)
 #AIC=2p-2logLik
 2*length(fitPO@coefficients)+2*optimPPO1$value
 #############################################################################################
+#########################################
+# Figure 6.19
+#########################################
+
+#########################################
+# Figure 6.20
+#########################################
+install.packages("ordinalgmifs")
+library(ordinalgmifs)
+library(VGAM)
+data(eyedisease)
+summary(eyedisease)
+library(beeswarm)
+par(mfrow=c(3,1))
+plot(eyedisease$lerl,col=gray.colors(4, start = 0.9, end = 0.3, gamma = 2.2, alpha = NULL),ylim=c(0,300),ylab="counts",cex.main=1.2,cex.lab=1.2,cex.axis=1.2,xlab="severity of retinopathy")
+boxplot(sbp~lerl, data = eyedisease, 
+        outline = FALSE,xlab="severity of retinopathy",ylab="systolic blood pressure",cex.main=1.2,cex.axis=1.2,cex.lab=1.2)
+## avoid double-plotting outliers, if any
+beeswarm(sbp~lerl, data = eyedisease, 
+         col =gray.colors(4, start = 0.9, end = 0.3, gamma = 2.2, alpha = NULL), pch = 16, add = TRUE)
+boxplot(lre~lerl, data = eyedisease, 
+        outline = FALSE,xlab="severity of retinopathy",ylab="left eye refraction index",cex.main=1.2,cex.axis=1.2,cex.lab=1.2)
+## avoid double-plotting outliers, if any
+beeswarm(lre~lerl, data = eyedisease, 
+         col =gray.colors(4, start = 0.9, end = 0.3, gamma = 2.2, alpha = NULL), pch = 16, add = TRUE)
+
+par(mfrow=c(1,3))
+plot(eyedisease$lerl,col=gray.colors(4, start = 0.9, end = 0.3, gamma = 2.2, alpha = NULL),ylim=c(0,300),ylab="counts",cex.main=1.2,cex.lab=1.2,cex.axis=1.2,xlab="severity of retinopathy")
+boxplot(sbp~lerl, data = eyedisease, 
+        outline = FALSE,xlab="severity of retinopathy",ylab="systolic blood pressure",cex.main=1.2,cex.axis=1.2,cex.lab=1.2)
+## avoid double-plotting outliers, if any
+beeswarm(sbp~lerl, data = eyedisease, 
+         col =gray.colors(4, start = 0.9, end = 0.3, gamma = 2.2, alpha = NULL), pch = 16, add = TRUE)
+boxplot(lre~lerl, data = eyedisease, 
+        outline = FALSE,xlab="severity of retinopathy",ylab="left eye refraction index",cex.main=1.2,cex.axis=1.2,cex.lab=1.2)
+## avoid double-plotting outliers, if any
+beeswarm(lre~lerl, data = eyedisease, 
+         col =gray.colors(4, start = 0.9, end = 0.3, gamma = 2.2, alpha = NULL), pch = 16, add = TRUE)
+
+
+
+#PPOM
+Model_eye_lerl<- vglm(lerl~sbp+lre,data=eyedisease,family = cumulative(parallel=FALSE~sbp))
+Model_eye_lerlPOM<- vglm(lerl~sbp+lre,data=eyedisease,family = cumulative(parallel=TRUE))
+
+logit2prob <- function(logit){
+  odds <- exp(logit)
+  prob <- odds / (1 + odds)
+  return(prob)
+}
+
+#Plot PPOM cumulative probabilities
+plot(logit2prob(predict(Model_eye_lerl)[,1])~eyedisease$sbp,ylab=expression("PPOM:"~P(Y<=j)),ylim=c(0,1),cex.lab=2,xlab="Systolic blood pressure",cex.axis=2,pch=19)
+points(logit2prob(predict(Model_eye_lerl)[,2])~eyedisease$sbp,col="#E69F00",pch=19)
+points(logit2prob(predict(Model_eye_lerl)[,3])~eyedisease$sbp,col="#56B4E9",pch=19)
+legend(170,1.0, legend=c(expression(P(Y<=3)~" " ),expression(P(Y<=2) ), expression(P(Y<=1) )),col=c("#56B4E9","#E69F00", "black"), lty=1, lwd=4, cex=1.8)
+#Plot PPOM logit cumulative probabilities
+plot(predict(Model_eye_lerl)[,1]~eyedisease$sbp,ylab=expression("PPOM:"~logit(P(Y<=j))),cex.lab=2,xlab="Systolic blood pressure",cex.axis=2,pch=19,ylim=c(-6,6))
+points(predict(Model_eye_lerl)[,2]~eyedisease$sbp,col="#E69F00",pch=19)
+points(predict(Model_eye_lerl)[,3]~eyedisease$sbp,col="#56B4E9",pch=19)
+legend(150,6.0, legend=c(expression(logit(P(Y<=3))),expression(logit(P(Y<=2))), expression(logit(P(Y<=1))~" ")),col=c("#56B4E9","#E69F00", "black"), lty=1, lwd=4, cex=1.8)
+
+#Optimisation of log-likelihood with Lasso
+invlogit<-function(x){
+1/(1+exp(-x))}	
+
+#Log-likelihood function
+LL2 <- function(data,par,lambda)
+{
+  Y <- data[, 18]
+  X <- cbind(data[,10],data[,4])
+  n <- length(Y)
+  C1 <- nlevels(as.factor(Y))
+  
+  #Indicator matrix 40x4
+  I1 <- matrix(rep(0,n*C1),n,C1)
+  I1[cbind(1:n,Y)] <- 1
+  
+  #Calculate cumulative probabilities P(Y<=1), P(Y <= 2), P(Y <= 3)
+  #For identifiability set par[6]=0
+  logit1 <-par[1] + (par[4])*(X[,1]-min(X))/(max(X)-min(X)) + par[5]*as.numeric(unlist(X[,2]))
+  logit2 <- par[2]+ (par[4]+par[6])*(X[,1]-min(X))/(max(X)-min(X))+ par[5]*as.numeric(unlist(X[,2]))
+  logit3 <- par[3] + (par[4]+par[7])*(X[,1]-min(X))/(max(X)-min(X)) + par[5]*as.numeric(unlist(X[,2]))
+  Logit<-cbind(logit1,logit2,logit3)
+  P<-invlogit(Logit)
+ 
+   #Set Initial response probabilities to 0
+  Pi<-matrix(rep(0,n*C1),n,C1) #40X4
+  
+  #j=1 and j=C always same expression
+  Pi[,1]<-P[,1]
+  Pi[,C1]<-1-P[,C1-1]
+  for(j in 2:(C1-1)){
+    Pi[,j]<-P[,j]-P[,j-1]
+  }
+  
+  #Log-likelihood:element-wise multiplication
+  LL <- -sum(I1*log(Pi))+lambda*sum(abs(par[6]),abs(par[7]))
+  return(LL)
+}
+
+
+library(glmnet)
+x<-cbind(eyedisease$sbp,eyedisease$lre)
+lambdas <- 10^seq(3, -2, by = -.1)
+y<-eyedisease$lerl
+cv_fit <- cv.glmnet(x, as.numeric(y), alpha = 1, lambda = lambdas)
+plot(cv_fit)
+opt_lambda <- cv_fit$lambda.min
+opt_lambda
+#[1] 0.01
+
+start2<-c(Model_eye_lerlPOM@coefficients,0,0)
+optim1<-optim(fn=LL2,par=start2,lambda=opt_lambda,method = 'Nelder-Mead',data=eyedisease,control=list(maxit=10000))
+#Loop
+#Stable optim value
+optim23<-optim(fn=LL2,par=optim22$par,lambda=opt_lambda,method = 'Nelder-Mead',data=eyedisease,control=list(maxit=10000))#
+#$value
+#[1] 829.0618
+
+new.sbp <- seq(70,220,length=720)
+z.min <- -70
+z.max <- 220
+
+pars <- optim23$par
+
+pred.sbp1 <-pars[1] + (pars[4])*(new.sbp-min(new.sbp))/(max(new.sbp)-min(new.sbp)) + pars[5]*eyedisease$lre
+pred.sbp2<- pars[2]+ (pars[4]+pars[6])*(new.sbp-min(new.sbp))/(max(new.sbp)-min(new.sbp))+ pars[5]*eyedisease$lre
+pred.sbp3 <- pars[3] + (pars[4]+pars[7])*(new.sbp-min(new.sbp))/(max(new.sbp)-min(new.sbp)) + pars[5]*eyedisease$lre
+
+par(mfrow=c(2,2))
+plot(sort(logit2prob(pred.sbp1),decreasing=FALSE)~sort(new.sbp,decreasing=TRUE),ylab=expression(PPOM-Lasso: P(Y<=j)),ylim=c(0,1),cex.lab=1.2,xlab="Systolic blood pressure",cex.axis=1.2,pch=19,type="l",lwd=5)
+lines(sort(logit2prob(pred.sbp2),decreasing=FALSE)~sort(new.sbp,decreasing=TRUE),col="#E69F00",data=eyedisease,pch=19,lwd=5)
+lines(sort(logit2prob(pred.sbp3),decreasing=FALSE)~sort(new.sbp,decreasing=TRUE),col="#56B4E9",data=eyedisease,pch=19,lwd=5)
+#fixes issue long ablines
+par(xpd = FALSE) 
+abline(v=78,lty=2,lwd=1)
+abline(v=218,lty=2,lwd=1)
+legend(80,0.35, legend=c(expression(P(Y<=3)~" "),expression(P(Y<=2)), expression(P(Y<=1))),col=c("#56B4E9","#E69F00", "black"), lty=1, lwd=2, cex=1.0)
+
+#Zoomed plot
+length(pred.sbp2)
+length(pred.sbp3)
+#[1] 720
+length(new.sbp)
+new.sbp[650]
+
+plot(sort(logit2prob(pred.sbp2),decreasing=FALSE)~sort(new.sbp,decreasing=TRUE),col="#E69F00",data=eyedisease,ylab=expression(PPOM-Lasso:P(Y<=j)),ylim=c(0.00,0.30),xlim=c(205,220),cex.lab=1.2,xlab="Systolic blood pressure",cex.axis=1.2,pch=19,type="l",lwd=5)
+lines(sort(logit2prob(pred.sbp3),decreasing=FALSE)~sort(new.sbp,decreasing=TRUE),col="#56B4E9",data=eyedisease,pch=19,lwd=5)
+abline(v=78,lty=2,lwd=1)
+abline(v=218,lty=2,lwd=1)
+legend(206,0.105, legend=c(expression(P(Y<=3)~" "),expression(P(Y<=2)), expression(P(Y<=1))),col=c("#56B4E9","#E69F00", "black"), lty=1, lwd=2, cex=1.0)
+
+
+plot(sort(pred.sbp1,decreasing=FALSE)~sort(new.sbp,decreasing=TRUE),ylab=expression(PPOM-Lasso: "logit"~(P(Y<=j))),ylim=c(-11,11),cex.lab=1.2,xlab="Systolic blood pressure",cex.axis=1.2,pch=19,type="l",lwd=5)
+lines(sort(pred.sbp2,decreasing=FALSE)~sort(new.sbp,decreasing=TRUE),col="#E69F00",data=eyedisease,pch=19,lwd=5)
+lines(sort(pred.sbp3,decreasing=FALSE)~sort(new.sbp,decreasing=TRUE),col="#56B4E9",data=eyedisease,pch=19,lwd=5)
+abline(v=78,lty=2,lwd=1)
+abline(v=218,lty=2,lwd=1)
+legend(80,-3.2, legend=c(expression("logit"~(P(Y<=3))~" "),expression("logit"~(P(Y<=2))), expression("logit"~(P(Y<=1)))),col=c("#56B4E9","#E69F00", "black"), lty=1, lwd=2, cex=1.0)
+
+#Zoomed plot
+length(pred.sbp2)
+length(pred.sbp3)
+#[1] 720
+length(new.sbp)
+new.sbp[650]
+
+plot(sort(pred.sbp2,decreasing=FALSE)~sort(new.sbp,decreasing=TRUE),col="#E69F00",data=eyedisease,ylab=expression(PPOM-Lasso: "logit"~(P(Y<=j))),ylim=c(-2.5,0),xlim=c(180,220),cex.lab=1.2,xlab="Systolic blood pressure",cex.axis=1.2,pch=19,type="l",lwd=5)
+lines(sort(pred.sbp3,decreasing=FALSE)~sort(new.sbp,decreasing=TRUE),col="#56B4E9",data=eyedisease,pch=19,lwd=5)
+abline(v=78,lty=2,lwd=1)
+abline(v=218,lty=2,lwd=1)
+legend(179.7,-1.60, legend=c(expression("logit"~(P(Y<=3))~" "),expression("logit"~(P(Y<=2))), expression("logit"~(P(Y<=1)))),col=c("#56B4E9","#E69F00", "black"), lty=1, lwd=2, cex=1.0)
+
+#########################################
+# Figure 6.21
+#########################################
