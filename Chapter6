@@ -1228,55 +1228,10 @@ library(ordinalgmifs)
 library(VGAM)
 data(eyedisease)
 summary(eyedisease)
-library(beeswarm)
-par(mfrow=c(3,1))
-plot(eyedisease$lerl,col=gray.colors(4, start = 0.9, end = 0.3, gamma = 2.2, alpha = NULL),ylim=c(0,300),ylab="counts",cex.main=1.2,cex.lab=1.2,cex.axis=1.2,xlab="severity of retinopathy")
-boxplot(sbp~lerl, data = eyedisease, 
-        outline = FALSE,xlab="severity of retinopathy",ylab="systolic blood pressure",cex.main=1.2,cex.axis=1.2,cex.lab=1.2)
-## avoid double-plotting outliers, if any
-beeswarm(sbp~lerl, data = eyedisease, 
-         col =gray.colors(4, start = 0.9, end = 0.3, gamma = 2.2, alpha = NULL), pch = 16, add = TRUE)
-boxplot(lre~lerl, data = eyedisease, 
-        outline = FALSE,xlab="severity of retinopathy",ylab="left eye refraction index",cex.main=1.2,cex.axis=1.2,cex.lab=1.2)
-## avoid double-plotting outliers, if any
-beeswarm(lre~lerl, data = eyedisease, 
-         col =gray.colors(4, start = 0.9, end = 0.3, gamma = 2.2, alpha = NULL), pch = 16, add = TRUE)
-
-par(mfrow=c(1,3))
-plot(eyedisease$lerl,col=gray.colors(4, start = 0.9, end = 0.3, gamma = 2.2, alpha = NULL),ylim=c(0,300),ylab="counts",cex.main=1.2,cex.lab=1.2,cex.axis=1.2,xlab="severity of retinopathy")
-boxplot(sbp~lerl, data = eyedisease, 
-        outline = FALSE,xlab="severity of retinopathy",ylab="systolic blood pressure",cex.main=1.2,cex.axis=1.2,cex.lab=1.2)
-## avoid double-plotting outliers, if any
-beeswarm(sbp~lerl, data = eyedisease, 
-         col =gray.colors(4, start = 0.9, end = 0.3, gamma = 2.2, alpha = NULL), pch = 16, add = TRUE)
-boxplot(lre~lerl, data = eyedisease, 
-        outline = FALSE,xlab="severity of retinopathy",ylab="left eye refraction index",cex.main=1.2,cex.axis=1.2,cex.lab=1.2)
-## avoid double-plotting outliers, if any
-beeswarm(lre~lerl, data = eyedisease, 
-         col =gray.colors(4, start = 0.9, end = 0.3, gamma = 2.2, alpha = NULL), pch = 16, add = TRUE)
-
-
 
 #PPOM
 Model_eye_lerl<- vglm(lerl~sbp+lre,data=eyedisease,family = cumulative(parallel=FALSE~sbp))
 Model_eye_lerlPOM<- vglm(lerl~sbp+lre,data=eyedisease,family = cumulative(parallel=TRUE))
-
-logit2prob <- function(logit){
-  odds <- exp(logit)
-  prob <- odds / (1 + odds)
-  return(prob)
-}
-
-#Plot PPOM cumulative probabilities
-plot(logit2prob(predict(Model_eye_lerl)[,1])~eyedisease$sbp,ylab=expression("PPOM:"~P(Y<=j)),ylim=c(0,1),cex.lab=2,xlab="Systolic blood pressure",cex.axis=2,pch=19)
-points(logit2prob(predict(Model_eye_lerl)[,2])~eyedisease$sbp,col="#E69F00",pch=19)
-points(logit2prob(predict(Model_eye_lerl)[,3])~eyedisease$sbp,col="#56B4E9",pch=19)
-legend(170,1.0, legend=c(expression(P(Y<=3)~" " ),expression(P(Y<=2) ), expression(P(Y<=1) )),col=c("#56B4E9","#E69F00", "black"), lty=1, lwd=4, cex=1.8)
-#Plot PPOM logit cumulative probabilities
-plot(predict(Model_eye_lerl)[,1]~eyedisease$sbp,ylab=expression("PPOM:"~logit(P(Y<=j))),cex.lab=2,xlab="Systolic blood pressure",cex.axis=2,pch=19,ylim=c(-6,6))
-points(predict(Model_eye_lerl)[,2]~eyedisease$sbp,col="#E69F00",pch=19)
-points(predict(Model_eye_lerl)[,3]~eyedisease$sbp,col="#56B4E9",pch=19)
-legend(150,6.0, legend=c(expression(logit(P(Y<=3))),expression(logit(P(Y<=2))), expression(logit(P(Y<=1))~" ")),col=c("#56B4E9","#E69F00", "black"), lty=1, lwd=4, cex=1.8)
 
 #Optimisation of log-likelihood with Lasso
 invlogit<-function(x){
@@ -1345,6 +1300,12 @@ pars <- optim23$par
 pred.sbp1 <-pars[1] + (pars[4])*(new.sbp-min(new.sbp))/(max(new.sbp)-min(new.sbp)) + pars[5]*eyedisease$lre
 pred.sbp2<- pars[2]+ (pars[4]+pars[6])*(new.sbp-min(new.sbp))/(max(new.sbp)-min(new.sbp))+ pars[5]*eyedisease$lre
 pred.sbp3 <- pars[3] + (pars[4]+pars[7])*(new.sbp-min(new.sbp))/(max(new.sbp)-min(new.sbp)) + pars[5]*eyedisease$lre
+
+logit2prob <- function(logit){
+  odds <- exp(logit)
+  prob <- odds / (1 + odds)
+  return(prob)
+}
 
 par(mfrow=c(2,2))
 plot(sort(logit2prob(pred.sbp1),decreasing=FALSE)~sort(new.sbp,decreasing=TRUE),ylab=expression(PPOM-Lasso: P(Y<=j)),ylim=c(0,1),cex.lab=1.2,xlab="Systolic blood pressure",cex.axis=1.2,pch=19,type="l",lwd=5)
