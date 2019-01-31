@@ -1,7 +1,7 @@
 ##################
 # Chapter 6 - Solutions to negative predictions in PPOMs.
 ##################
-# January 2019
+# Last update: January 2019
 ##################
 ######################################################################################################
 #########################################
@@ -192,7 +192,9 @@ rgl.postscript("planes3.pdf","pdf")
 #########################################
 # Figure 6.5
 #########################################
-
+#########################################
+# Figure 6.15
+#########################################
 #########################################
 # Figure 6.16
 #########################################
@@ -354,6 +356,49 @@ lines(sort(logit2prob(pred.sbp3),decreasing=FALSE)~sort(x2.sc,decreasing=TRUE),c
 abline(v=0.4732,lty=2,lwd=1)
 abline(v=0.5584,lty=2,lwd=1)
 legend(150,1.02, legend=c("P(Y<=3)","P(Y<=2)", "P(Y<=1)"),col=c("#56B4E9","#E69F00", "black"), lty=1, lwd=4, cex=1.2)
+
+#########################################
+# Figure 6.17
+#########################################
+data_survey_ev<-read.csv("sevat_v2.csv",header=TRUE,na.strings=".")
+summary(data_survey_ev)
+#libraries
+library(VGAM)
+library(ordinalNet)
+
+#Without missing/refused
+data_survey_ev_womed<-data_survey_ev[which(data_survey_ev$edqual>-1),]
+library(plyr)
+#Change order
+data_survey_ev_womed$edqual <- mapvalues(data_survey_ev_womed$edqual, from = c("2","3","4","5","6"), to = c("5","4","3","2","1"))
+attach(data_survey_ev_womed)
+
+# install.packages("ordinalgmifs")
+# library(ordinalgmifs)
+# data(eyedisease)
+# summary(eyedisease)
+# #PPOM
+Model_ed_age<- vglm(edqual~exact_ag,data=data_survey_ev_womed,family = cumulative(parallel=FALSE~exact_ag))
+Model_ed_age_POM<- vglm(edqual~exact_ag,data=data_survey_ev_womed,family = cumulative(parallel=TRUE))
+
+logit2prob <- function(logit){
+  odds <- exp(logit)
+  prob <- odds / (1 + odds)
+  return(prob)
+}
+
+par(mfrow=c(1,2))
+#Plot PPOM cumulative probabilities
+plot(logit2prob(predict(Model_ed_age)[,1])~data_survey_ev_womed$exact_ag,ylab=expression("PPOM:"~P(Y<=j)),ylim=c(0,1),cex.lab=2,xlab="Age",cex.axis=2,pch=19)
+points(logit2prob(predict(Model_ed_age)[,2])~data_survey_ev_womed$exact_ag,col="#E69F00",pch=19)
+points(logit2prob(predict(Model_ed_age)[,3])~data_survey_ev_womed$exact_ag,col="#56B4E9",pch=19)
+points(logit2prob(predict(Model_ed_age)[,4])~data_survey_ev_womed$exact_ag,col="darkgreen",pch=19)
+
+#Plot PPOM logit of cumulative probabilities
+plot(predict(Model_ed_age)[,1]~data_survey_ev_womed$exact_ag,ylab=expression("PPOM:"~logit(P(Y<=j))),cex.lab=2,xlab="Age",cex.axis=2,pch=19,ylim=c(-4,4),type="l",lwd=5)
+lines(predict(Model_ed_age)[,2]~data_survey_ev_womed$exact_ag,col="#E69F00",pch=19,lwd=5)
+lines(predict(Model_ed_age)[,3]~data_survey_ev_womed$exact_ag,col="#56B4E9",pch=19,lwd=5)
+lines(predict(Model_ed_age)[,4]~data_survey_ev_womed$exact_ag,col="darkgreen",pch=19,lwd=5)
 
 #########################################
 # Figure 6.18
