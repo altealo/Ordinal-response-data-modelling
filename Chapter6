@@ -190,6 +190,247 @@ text3d(c(0,-1,0),texts=c('                             zb ','',''))
 rgl.postscript("planes3.pdf","pdf")
 
 #########################################
+# Figure 6.5
+#########################################
+#################
+#4 categories 
+#DATA FROM A POM
+#################
+set.seed(1839)
+n <- 1000
+x1 <- rnorm(n)
+#x2 <- runif(n)
+
+#POM generated
+b01 <- -1.9
+b02 <- -1.8
+b03<--0.6 
+b1 <- 0.2
+
+#b01 <- -0.9
+#b02 <- -0.8
+#b03<--0.6 
+#b1 <- 0.2
+
+logit1<-b01 -b1 * x1 
+logit2<-b02 -b1 * x1 
+logit3<-b03 -b1 * x1 
+  
+inv_logit <- function(logit) exp(logit) / (1 + exp(logit))
+cump1<-inv_logit(logit1)
+cump2<-inv_logit(logit2)
+cump3<-inv_logit(logit3)
+
+prob_1<-cump1
+prob_2<-cump2-prob_1
+prob_3<-cump3-prob_2
+prob_4=1-prob_1-prob_2-prob_3
+
+table(c(prob_1, prob_2,prob_3, prob_4) > 0)
+
+y<-c(n)
+for (i in 1:n) {
+  y[i] <- sample(
+    x = c(1:4), 
+    size = 1, 
+    prob = c(prob_1[i], prob_2[i],prob_3[i], prob_4[i])
+  )
+}
+#Plots
+par(mfrow=c(1,2))
+plot(as.ordered(y),ylim=c(0,1000),xlab="Y categories",ylab="counts",cex=1.2,cex.lab=1.2,cex.axis=1.2)
+#Parallel logits of original POM
+
+plot(x1,logit1,col="black",type="l",lwd=5,cex=1.2,cex.lab=1.2,cex.axis=1.2,ylim=c(-4,4),xlab="x",ylab=expression("Original POM:"~logit(P(Y<=j))))
+lines(x1,logit2,col="#E69F00",lwd=5)
+lines(x1,logit3,col="#56B4E9",lwd=5)
+legend_texts=expression(logit(P(Y<=3))~"  ",logit(P(Y<=2))~"  ",logit(P(Y<=1))~"  ")
+legend("topright", legend=legend_texts, col=c("#56B4E9", "#E69F00", "black"), lwd=c(5,5,5))
+
+#########################################
+# Figure 6.6
+#########################################
+#POPO
+library(VGAM)
+dat <- data.frame(x1, y)
+fitPOPO<-vglm(as.ordered(y) ~ x1, data = dat,family=cumulative(link="logit",parallel=TRUE))
+summary(fitPOPO)
+#Cumulative probabilities P(Y_i<=j)
+p1<-predict(fitPOPO,type="response")[,1]
+p2<-predict(fitPOPO,type="response")[,1]+predict(fitPOPO,type="response")[,2]
+p3<-predict(fitPOPO,type="response")[,1]+predict(fitPOPO,type="response")[,2]+predict(fitPOPO,type="response")[,3]
+
+
+#Plot on the cumulative probabilities scale
+par(mfrow=c(1,2))
+plot(sort(x1,decreasing=TRUE),sort(p1,decreasing=FALSE),ylab=expression(POM: P(Y<=j)),xlab="X",cex=1.2,cex.lab=1.2,cex.axis=1.2,ylim=c(0,1),type="l",lwd=5)
+lines(sort(x1,decreasing=TRUE),sort(p2,decreasing=FALSE),col="#E69F00",lwd=5)
+lines(sort(x1,decreasing=TRUE),sort(p3,decreasing=FALSE),col="#56B4E9",lwd=5)
+legend_texts=expression(P(Y<=3)~"  ",P(Y<=2)~"  ",P(Y<=1)~"  ")
+legend("topright", legend=legend_texts, col=c("#56B4E9", "#E69F00", "black"), lwd=c(5,5,5))
+
+
+#Plot on the logit scale
+plot(x1,log(p1/(1-p1)),type="l",lwd=4,ylab=expression(POM: logit(P(Y<=j))),xlab="X",cex=1.2,cex.lab=1.2,cex.axis=1.2,ylim=c(-4,4))
+lines(x1,log(p2/(1-p2)),col="#E69F00",lwd=4)
+lines(x1,log(p3/(1-p3)),col="#56B4E9",lwd=4)
+legend_texts=expression(logit(P(Y<=3))~"  ",logit(P(Y<=2))~"  ",logit(P(Y<=1))~"  ")
+legend("topright", legend=legend_texts, col=c("#56B4E9", "#E69F00", "black"), lwd=c(5,5,5))
+
+#########################################
+# Figure 6.7
+#########################################
+fitPPOPO<-vglm(as.ordered(y) ~ x1, data = dat,family=cumulative(parallel=FALSE))
+summary(fitPPOPO)
+#Cumulative probabilities P(Y_i<=j)
+p1<-predict(fitPPOPO,type="response")[,1]
+p2<-predict(fitPPOPO,type="response")[,1]+predict(fitPPOPO,type="response")[,2]
+p3<-predict(fitPPOPO,type="response")[,1]+predict(fitPPOPO,type="response")[,2]+predict(fitPPOPO,type="response")[,3]
+
+#Plot on the cumulative probabilities scale
+par(mfrow=c(1,2))
+plot(sort(x1,decreasing=TRUE),sort(p1,decreasing=FALSE),ylab=expression(PPOM: P(Y<=j)),xlab="x",cex=1.2,cex.lab=1.2,cex.axis=1.2,ylim=c(0,1),type="l",lwd=5)
+lines(sort(x1,decreasing=TRUE),sort(p2,decreasing=FALSE),col="#E69F00",lwd=5)
+lines(sort(x1,decreasing=TRUE),sort(p3,decreasing=FALSE),col="#56B4E9",lwd=5)
+legend_texts=expression(P(Y<=3)~"  ",P(Y<=2)~"  ",P(Y<=1)~"  ")
+legend("topright", legend=legend_texts, col=c("#56B4E9", "#E69F00", "black"), lwd=c(5,5,5))
+
+
+#Plot on the logit scale
+plot(x1,log(p1/(1-p1)),type="l",lwd=5,ylab=expression(PPOM: logit(P(Y<=j))),xlab="x",cex=1.2,cex.lab=1.2,cex.axis=1.2,ylim=c(-4,4))
+lines(x1,log(p2/(1-p2)),col="#E69F00",lwd=5)
+lines(x1,log(p3/(1-p3)),col="#56B4E9",lwd=5)
+legend_texts=expression(logit(P(Y<=3))~"  ",logit(P(Y<=2))~"  ",logit(P(Y<=1))~"  ")
+legend("topright", legend=legend_texts, col=c("#56B4E9", "#E69F00", "black"), lwd=c(5,5,5))
+
+#########################################
+# Figure 6.13
+#########################################
+#4 categories 
+#DATA FROM A PPOM
+#################
+set.seed(1839)
+n <- 1000
+x1 <-rnorm(n)
+set.seed(1839)
+x2<-rnorm(n,0.1,1.1)
+#x2 <- rnorm(n,0.2,1.2)
+#x2<-runif(n)
+
+b01 <- -1.9
+b02 <- -1.8
+b03<--0.6
+#BETA_J
+b1 <- 0.1
+b2<-0.13
+b3<-0.16
+#Gamma_{i} (n)
+# g1<--2
+# g2<-2.08
+# g3<-2.495
+#g1<- -2.1
+g1<-0.1
+g2<-0.03
+g3<-0.26
+
+logitpp1<-b01 -b1*x1 -g1*x2
+logitpp2<-b02 -b2*x1 -g2*x2
+logitpp3<-b03 -b3*x1 -g3*x2
+
+
+inv_logit <- function(logit) exp(logit) / (1 + exp(logit))
+cump1<-inv_logit(logitpp1)
+cump2<-inv_logit(logitpp2)
+cump3<-inv_logit(logitpp3)
+
+prob_pp_1<-cump1
+prob_pp_2<-cump2-prob_pp_1
+prob_pp_3<-cump3-prob_2
+prob_pp_4<-1-prob_pp_1-prob_pp_2-prob_pp_3
+
+table(c(prob_pp_1,prob_pp_2,prob_pp_3,prob_pp_4) > 0)
+
+par(mfrow=c(1,3))
+plot(as.ordered(y),ylim=c(0,1000),xlab="Y categories",ylab="counts",cex=1.2,cex.lab=1.2,cex.axis=1.2)
+boxplot(x1~y)
+boxplot(x2~y)
+#########################################
+# Figure 6.14
+#########################################
+library(ordinal)
+dat <- data.frame(x1,x2, y)
+fitPOPPO<-vglm(as.ordered(y) ~ x1+x2, data = dat,family=cumulative(link="logit",parallel=TRUE))
+summary(fitPOPPO)
+fitPPOPPO<-vglm(as.ordered(y) ~ x1+x2, data = dat,family=cumulative(parallel=FALSE~x1+x2))
+summary(fitPPOPO)
+#Cumulative probabilities P(Y_i<=j)
+p1<-predict(fitPPOPPO,type="response")[,1]
+p2<-predict(fitPPOPPO,type="response")[,1]+predict(fitPPOPPO,type="response")[,2]
+p3<-predict(fitPPOPPO,type="response")[,1]+predict(fitPPOPPO,type="response")[,2]+predict(fitPPOPPO,type="response")[,3]
+
+#Plot on the cumulative probabilities scale
+par(mfrow=c(2,2))
+plot(sort(x1,decreasing=TRUE),sort(p1,decreasing=FALSE),ylab=expression(PPOM: P(Y<=j)),xlab=expression(x[1]),cex=1.2,cex.lab=1.2,cex.axis=1.2,ylim=c(0,1),type="l",lwd=5)
+lines(sort(x1,decreasing=TRUE),sort(p2,decreasing=FALSE),col="#E69F00",lwd=5)
+lines(sort(x1,decreasing=TRUE),sort(p3,decreasing=FALSE),col="#56B4E9",lwd=5)
+legend_texts=expression(P(Y<=3)~"  ",P(Y<=2)~"  ",P(Y<=1)~"  ")
+legend("topright", legend=legend_texts, col=c("#56B4E9", "#E69F00", "black"), lwd=c(5,5,5))
+
+#Plot on the cumulative probabilities scale
+plot(sort(x2,decreasing=TRUE),sort(p1,decreasing=FALSE),ylab=expression(PPOM: P(Y<=j)),xlab=expression(x[2]),cex=1.2,cex.lab=1.2,cex.axis=1.2,ylim=c(0,1),type="l",lwd=5)
+lines(sort(x2,decreasing=TRUE),sort(p2,decreasing=FALSE),col="#E69F00",lwd=5)
+lines(sort(x2,decreasing=TRUE),sort(p3,decreasing=FALSE),col="#56B4E9",lwd=5)
+legend_texts=expression(P(Y<=3)~"  ",P(Y<=2)~"  ",P(Y<=1)~"  ")
+legend("topright", legend=legend_texts, col=c("#56B4E9", "#E69F00", "black"), lwd=c(5,5,5))
+
+
+#Plot on the logit scale
+plot(x1,log(p1/(1-p1)),ylab=expression(PPOM: logit(P(Y<=j))),xlab=expression(x[1]),cex=1.2,cex.lab=1.2,cex.axis=1.2,ylim=c(-4,4),type="l",lwd=5)
+lines(x1,log(p2/(1-p2)),col="#E69F00",lwd=5)
+lines(x1,log(p3/(1-p3)),col="#56B4E9",lwd=5)
+legend_texts=expression(logit(P(Y<=3))~"  ",logit(P(Y<=2))~"  ",logit(P(Y<=1))~"  ")
+legend("topright", legend=legend_texts, col=c("#56B4E9", "#E69F00", "black"), lwd=c(5,5,5))
+
+plot(x2,log(p1/(1-p1)),ylab=expression(PPOM: logit(P(Y<=j))),xlab=expression(x[2]),cex=1.2,cex.lab=1.2,cex.axis=1.2,ylim=c(-4,4),type="l",lwd=5)
+lines(x2,log(p2/(1-p2)),col="#E69F00",lwd=5)
+lines(x2,log(p3/(1-p3)),col="#56B4E9",lwd=5)
+legend_texts=expression(logit(P(Y<=3))~"  ",logit(P(Y<=2))~"  ",logit(P(Y<=1))~"  ")
+legend("topright", legend=legend_texts, col=c("#56B4E9", "#E69F00", "black"), lwd=c(5,5,5))
+
+#########################################
+# Figure 6.15
+#########################################
+new.x1 <- seq(-3,3,length=1000)
+x1.min <- -3
+x1.max <- 3
+x2.min <- -3
+x2.max <- 3
+new.x2 <- seq(-3,3,length=1000)
+dat$x1.sc <- (dat$x1-x1.min)/(x1.max-x1.min)
+dat$x2.sc <- (dat$x2-x2.min)/(x2.max-x2.min)
+
+pred.x1 <-pars[1] + (pars[4])*(new.x1-min(new.x1))/(max(new.x1)-min(new.x1)) + pars[5]*(new.x2-min(new.x2))/(max(new.x2)-min(new.x2))
+pred.x2<- pars[2]+ (pars[4]+pars[6])*(new.x1-min(new.x1))/(max(new.x1)-min(new.x1))+ (pars[5]+pars[8])*(new.x2-min(new.x2))/(max(new.x2)-min(new.x2))
+pred.x3 <- pars[3] + (pars[4]+pars[7])*(new.x1-min(new.x1))/(max(new.x1)-min(new.x1))+(pars[5]+pars[9])*(new.x2-min(new.x2))/(max(new.x2)-min(new.x2))
+
+par(mfrow=c(1,2))
+#Plot P(Y<=j)
+plot(logit2prob(pred.x1)~new.x1,ylab=expression(PPOM-Lasso: P(Y<=j)),type="l",xlim=c(-3,3),ylim=c(0,0.7),cex.lab=1.5,xlab=expression(x[1]),cex.axis=1.5,pch=19,lwd=2)
+lines(logit2prob(pred.x2)~new.x1,col="#E69F00",data=dat,pch=19)
+lines(logit2prob(pred.x3)~new.x1,col="#56B4E9",data=dat,pch=19)
+abline(v=78,lty=2,lwd=1)
+abline(v=218,lty=2,lwd=1)
+legend(0.5,0.7, legend=c(expression(P(Y<=3)),expression(P(Y<=2)), expression(P(Y<=1))),col=c("#56B4E9","#E69F00", "black"), lty=1, lwd=1, cex=1.2)
+
+#Plot P(Y<=j) 
+plot(logit2prob(pred.x1)~new.x2,ylab=expression(PPOM-Lasso: P(Y<=j)),xlim=c(-3,3),ylim=c(0,0.7),cex.lab=1.5,xlab=expression(x[2]),cex.axis=1.5,pch=19,lwd=2,type="l")
+lines(logit2prob(pred.x2)~new.x2,col="#E69F00",data=dat,pch=19)
+lines(logit2prob(pred.x3)~new.x2,col="#56B4E9",data=dat,pch=19)
+abline(v=78,lty=2,lwd=1)
+abline(v=218,lty=2,lwd=1)
+legend(0.5,0.7, legend=c(expression(P(Y<=3)),expression(P(Y<=2)), expression(P(Y<=1))),col=c("#56B4E9","#E69F00", "black"), lty=1, lwd=1, cex=1.2)
+
+#########################################
 # Figure 6.16
 #########################################
 #PPOPO two covariates
